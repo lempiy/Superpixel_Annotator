@@ -16,8 +16,6 @@ func writePNG(img image.Image, filename string) {
 }
 
 func main() {
-	flag.Parse()
-
 	nc := runtime.NumCPU()
 	runtime.GOMAXPROCS(nc)
 
