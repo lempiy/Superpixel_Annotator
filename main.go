@@ -3,6 +3,8 @@ package main
 import (
 	"github.com/kurige/SLIC"
 	"image"
+	_ "image/gif"
+	_ "image/jpeg"
 	"os"
 	"image/png"
 	"flag"
@@ -23,7 +25,7 @@ func main() {
 
 	superpixels := 200 // number of superpixels
 	compactness := 20.0 // compactness ratio (between distance and color)
-	iterations := 10 // number of slic iteration
+	iterations := 10 // number of slic iterations
 
 
 	file_name := flag.Arg(0)
