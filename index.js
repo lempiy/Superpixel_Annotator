@@ -63,11 +63,19 @@ class Origin {
         this.netcanvas = document.createElement("canvas");
         this.nctx = this.netcanvas.getContext('2d');
         this.polycanvas = document.createElement("canvas");
-        this.pctx = this.netcanvas.getContext('2d');
+        document.body.appendChild(this.netcanvas)
+        this.pctx = this.polycanvas.getContext('2d');
         this.bufferCanvas = document.createElement("canvas");
         this.bctx = this.bufferCanvas.getContext('2d');
         this.gridImage = new Image();
         this.currentImageData = null;
+    }
+
+    transformCoords(coords, scale, netCoords) {
+        return {
+            x: Math.floor((coords.x - netCoords.x) / scale),
+            y: Math.floor((coords.y - netCoords.y) / scale),
+        }
     }
 
     load(src) {
@@ -80,10 +88,12 @@ class Origin {
                 this.nctx.clearRect(0, 0, this.netcanvas.width, this.netcanvas.height);
                 this.netcanvas.width = this.gridImage.width;
                 this.netcanvas.height = this.gridImage.height;
-                this.netcanvas.drawImage(this.gridImage, 0, 0);
+                this.nctx.drawImage(this.gridImage, 0, 0);
 
                 this.bctx.clearRect(0, 0, this.bctx.width, this.bctx.height);
+                resolve()
             }
+            this.gridImage.onerror = () => reject()
             this.gridImage.src = src
         })
     }
@@ -94,12 +104,11 @@ class Origin {
     }
 
     getScaledImageData(ratio) {
-        this.bctx.width = this.pctx.width
-        this.bctx.height = this.pctx.height
-
-        this.bctx.putImageData(this.currentImageData, 0, 0)
-        this.bctx.scale(ratio, ratio)
-        return this.bctx.getImageData()
+        this.bufferCanvas.width = this.polycanvas.width * ratio
+        this.bufferCanvas.height = this.polycanvas.height * ratio
+        
+        this.bctx.drawImage(this.polycanvas, 0, 0, this.bufferCanvas.width, this.bufferCanvas.height)
+        return this.bctx.getImageData(0, 0, this.bufferCanvas.width, this.bufferCanvas.height)
     }
 }
 
@@ -113,34 +122,60 @@ window.onload = function() {
     var ctx=c.getContext("2d");
     var ctxo=co.getContext("2d");
     var ctxc=cc.getContext("2d");
+    var resolver = null
+    var workerReady = new Promise((resolve, reject) => {
+        resolver = resolve
+    })
 
     var origin = new Origin();
     var sFront = new Sprite("./images/pizzab_annotated_boundry.png");
     var sBack = new Sprite("./images/pizzab.jpg");
+    let scale = 1
+    const drawRect = (x,y, ctx) => {
+        ctx.rect(x, y, 4, 4);
+        ctx.stroke();
+    }
+
 
     c.onclick = e => {
-        wasmWorker.postMessage({cmd: 'click', coor: {x: e.offsetX, y: e.offsetY}});
+        
+        coords = origin.transformCoords({x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y})
+        drawRect(e.offsetX, e.offsetY,ctx);
+        console.log("small", e.offsetX, e.offsetY)
+        drawRect(coords.x, coords.y, origin.nctx);
+        console.log("big", coords.x, coords.y, sFront.w)
+        console.log("transformargs", {x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y}, "width", 800 / origin.netcanvas.width, "height",  800/ origin.netcanvas.height)
+        wasmWorker.postMessage({cmd: 'click', coor: origin.transformCoords({x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y})});
+        console.log({x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y}, {cmd: 'click', coor: origin.transformCoords({x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y})})
     }
+
+    
     
 
     wasmWorker.onmessage = function (e) {
         perfwasm1 = performance.now();
-        console.log(`WASM: ${perfwasm1}`, e.data);
+        if (e.data.msg === "ready") {
+            console.log("READy", resolver)
+            resolver()
+        }
         if (e.data.msg instanceof ImageData) {
-            ctxc.putImageData(e.data.msg, 0, 0)
+            origin.putImageData(e.data.msg)
+            ctxc.putImageData(origin.getScaledImageData(scale), 0, 0)
         }
         e.data = null
     }
 
     origin.load("./images/pizzab_annotated_boundry.png")
         .then(() => {
-            
+            workerReady.then(() => {
+                sendImageData()
+            })
         })
 
     sBack.load().then(() => {
         sBack.centX = co.width / 2;
         sBack.centY = co.height / 2;
-        const scale = co.width / sBack.origW
+        scale = 0.7//co.width / sBack.origW
         if (scale < 1) {
             sBack.scale(scale)
         }
@@ -151,21 +186,20 @@ window.onload = function() {
     sFront.load().then(() => {
         sFront.centX = c.width / 2;
         sFront.centY = c.height / 2;
-        const scale = c.width / sFront.origW
+        scale = 0.7//c.width / sFront.origW
         if (scale < 1) {
             sFront.scale(scale)
         }
 
         sFront.draw(ctx)
-        setTimeout(() => {
-            sendImageData()
-        }, 500)
+        
     })
 
     function sendImageData() {
-        let message = { cmd: 'imageNew', img: ctx.getImageData(0, 0, c.width, c.height)};
-        wasmWorker.postMessage(message);
-    }    
+        let message = { cmd: 'imageNew', img: origin.nctx.getImageData(0, 0, c.width, c.height)};
+        console.log(message)
+        wasmWorker.postMessage(message)
+    }
 };
 
 

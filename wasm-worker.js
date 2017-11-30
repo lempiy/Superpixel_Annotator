@@ -1,8 +1,13 @@
-var Module = {};
+var Module = {
+    onRuntimeInitialized: function() {
+        postMessage({msg: 'ready'});
+    }
+};
 importScripts('cv-wasm.js');
 self.onmessage = function (e) {
 	switch (e.data.cmd) {
         case 'imageNew':
+        console.log('imageNew recieved')
         getContours(e.data.img, e.data.json);
             break;
         case 'click':
@@ -10,8 +15,8 @@ self.onmessage = function (e) {
             break;
 	}
 }
-console.log('done loading worker')
-postMessage({msg: 'data'});
+
+
 let contours, hierarchy, dst, w, h, gis;
 
 function drawSegment(point) {
@@ -52,6 +57,7 @@ function getContours(imageData, json) {
     let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255),
     Math.round(Math.random() * 255), 255);
     let gsarea = 0;
+    console.log(contours.size())
     for (let i = 0; i < contours.size(); ++i) {
         let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255),
             Math.round(Math.random() * 255), 255);

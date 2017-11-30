@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/kurige/SLIC"
+	"github.com/lempiy/SLIC"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -10,6 +10,7 @@ import (
 	"flag"
 	"runtime"
 	"fmt"
+	"image/color"
 )
 
 func writePNG(img image.Image, filename string) {
@@ -55,5 +56,5 @@ func main() {
 	s := slic.MakeSlic(src_img, compactness, superpixelsize)
 	s.Run(iterations)
 
-	writePNG(s.DrawEdgesToImage(dst), "out.png")
+	writePNG(s.DrawEdgesToImage(dst, color.RGBA{255, 255, 255, 255}, true), "out.png")
 }
