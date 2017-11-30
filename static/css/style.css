@@ -1,0 +1,194 @@
+* {
+    margin: 0;
+    font-family: "Trebuchet MS", Helvetica, sans-serif;
+}
+
+ul {
+    padding: 0
+}
+
+li {
+    list-style: none;
+}
+
+.container {
+    display: flex;
+}
+
+.image-container {
+    width: calc(100% - 500px);
+    position: relative;
+}
+
+.canvas-a {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.image-block {
+
+}
+
+.iv-container {
+    width: 100%;
+    line-height: normal;
+}
+
+.image-block > img {
+    width: 100%;
+    height: auto;
+}
+
+.controls {
+    box-sizing: border-box;
+    width: 500px;
+    min-height: 100vh;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 0;
+    padding-right: 20px;
+}
+
+.controls .controls-division {
+    width: 50%;
+}
+
+.controls .counter {
+    width: 100%;
+    text-align: center;
+}
+
+.controls .button-container {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+}
+
+.controls button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid rgb(11, 109, 38);
+    background-color: rgb(13, 155, 36);
+    color: #fff;
+    border-radius: 5px;
+    min-height: 56px;
+    min-width: 150px;
+    cursor: pointer;
+    font-size: 20px;
+    position: relative;
+}
+
+.controls button:after {
+    content: '';
+    font-size: 12px;
+    color: #666666;
+    font-style: italic;
+    position: absolute;
+    right: -80px;
+    top: 10px;
+}
+
+.controls button.submit:after {
+    content: '(Shift+Enter)';
+}
+
+.controls button.skip:after {
+    content: '(Shift+Space)';
+}
+
+.controls button:focus {
+    outline: none;
+}
+
+.controls button:hover {
+    background-color: rgb(16, 194, 43);
+}
+
+.controls button.skip {
+    border: 2px solid rgb(150, 14, 45);
+    background-color: rgb(194, 16, 55);
+}
+
+.controls button.skip:hover {
+    background-color: rgb(219, 40, 82);
+}
+
+.counter .c-value {
+    padding-left: 5px;
+}
+
+.controls .full {
+    width: 100%;
+}
+
+.controls .full-spread {
+    width: 100%;
+}
+
+.list-button-cnt h3 {
+    text-align: center;
+    padding: 10px 0;
+    font-size: 22px;
+}
+
+.list-element .el-shortcut {
+    font-size: 12px;
+    color: #666666;
+    font-style: italic;
+}
+
+ul.list-el li {
+    box-sizing: border-box;
+    line-height: 24px;
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 5px;
+    font-size: 20px;
+    cursor: pointer;
+    user-select: none;
+}
+
+ul.list-el li:hover .el-name {
+    color: rgb(24, 158, 211)
+}
+
+ul.list-el li.selected .el-name {
+    color: rgb(58, 201, 58);
+}
+
+ul.list-el li .el-name::before {
+    content: '+';
+    color: rgb(58, 201, 58);
+    padding-right: 3px;
+    opacity: 0;
+    font-weight: bold;
+}
+
+.el-name {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+ul.list-el li.selected .el-name::before {
+    opacity: 1;
+}
+
+.toppings {
+    column-count: 2;
+}
+
+.spread {
+    column-count: 3;
+    column-gap: 0px;
+}
+
+.logo {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}

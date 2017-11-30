@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Annotation Tool</title>
+    <link rel="stylesheet" href="assets/css/imageviewer.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="image-container">
+            <div class="image-block">
+            </div>
+        </div>
+        <div class="controls">
+            <div class="button-container">
+                <button class="skip">SKIP</button>
+            </div>
+            <div class="counter">
+                <p><span class='c-title'>COUNTER:</span><span class="c-value">{{ .Count }}</span></p>
+            </div>
+            <div class="full"></div>
+            <div class="full-spread"></div>
+            <div class="controls-division left"></div>
+            <div class="controls-division right"></div>
+            <div class="controls-division left-last"></div>
+            <div class="controls-division right-last"></div>
+            <div class="button-container">
+                <button class="submit">SUBMIT</button>
+            </div>
+        </div>
+    </div>
+    <img class="logo" src="static/img/dragontail.gif" alt="dt-logo">
+    <script src="static/js/jquery-3.2.1.min.js"></script>
+    <script src="static/js/shortcut.js"></script>
+    <script src="static/js/imageviewer.min.js"></script>
+    <script src="static/js/index.js"></script>
+</body>
+</html>
