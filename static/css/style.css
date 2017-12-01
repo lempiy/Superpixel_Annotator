@@ -3,10 +3,6 @@
     font-family: "Trebuchet MS", Helvetica, sans-serif;
 }
 
-body {
-    background-color: #444
-}
-
 ul {
     padding: 0
 }
@@ -30,8 +26,21 @@ li {
     left: 0;
 }
 
-.image-block {
+.color-label {
+    width: 20px;
+    height: 20px;
+    border: 2px solid black;
+    display: inline-block;
+    box-sizing: border-box;
+    margin-right: 4px;
+    border-radius: 100%;
+}
 
+.licontent {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-grow: 1;
 }
 
 .iv-container {
@@ -126,7 +135,13 @@ li {
 }
 
 .controls .full {
-    width: 100%;
+    width: 50%;
+    margin: 0 auto;
+}
+
+.full-canvas {
+    width: 50%;
+    margin: 0 auto;
 }
 
 .controls .full-spread {
@@ -149,7 +164,7 @@ ul.list-el li {
     box-sizing: border-box;
     line-height: 24px;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     padding: 2px 5px;
     font-size: 20px;
     cursor: pointer;
@@ -164,26 +179,16 @@ ul.list-el li.selected .el-name {
     color: rgb(58, 201, 58);
 }
 
-ul.list-el li .el-name::before {
-    content: '+';
-    color: rgb(58, 201, 58);
-    padding-right: 3px;
-    opacity: 0;
-    font-weight: bold;
-}
-
 .el-name {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
 }
 
-ul.list-el li.selected .el-name::before {
-    opacity: 1;
-}
-
-.toppings {
-    column-count: 2;
+.panel {
+    width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
 .spread {

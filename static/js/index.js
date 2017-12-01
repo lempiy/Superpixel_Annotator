@@ -6,6 +6,7 @@ $(function () {
     'Pepperoni', 'Prawns', 'Bacon', 'Pork Fennel sausage', 'Chicken', 'Ham',
     'Camembert', 'Feta', 'Anchovies', 'Olives', 'Avocado', 'Roasted Pepper',
     'Chorizo'];
+    
     var keysToppings = '1234567890qwertyuiopasdfg'.toUpperCase().split('');
     var spread = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
     var keysSpread = spread.map(function(item) {
@@ -42,7 +43,7 @@ $(function () {
         var blist = new ButtonList({
             hostElement: document.querySelector(".controls .full"),
             list: getList(toppings, keysToppings),
-            multiSelect: true,
+            multiSelect: false,
             selectedClass: "topping-selected",
             name: "toppings"
         })
@@ -88,7 +89,7 @@ $(function () {
 
     function initSauces(sauceTypes, sauceTypesKeys) {
         var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .left-last"),
+            hostElement: document.querySelector(".controls .full"),
             list: getList(sauceTypes, sauceTypesKeys),
             multiSelect: false,
             selectedClass: "sauces-selected",
@@ -110,12 +111,45 @@ $(function () {
         return blist
     }
 
+    class EventEmitter {
+        constructor() {
+            this.events = {};
+        }
+        subscribe(eventName, fn) {
+            if(!this.events[eventName]) {
+                this.events[eventName] = [];
+            }
+
+            this.events[eventName].push(fn);
+
+            return () => {
+                this.events[eventName] = this.events[eventName].filter(eventFn => fn !== eventFn);
+            }
+        }
+
+        emit(eventName, data) {
+            const event = this.events[eventName];
+            if(event) {
+                event.forEach(fn => {
+                    fn.call(null, data);
+                });
+            }
+        }
+    }
+
     function ButtonList(options) {
         Object.assign(this, options)
         this.data = this.multiSelect ? this.list.reduce(function(acc, el) {
             acc[el.value] = false;
             return acc
         }, {}) : "";
+        this.colors = this.list.reduce(function(acc, el) {
+            acc[el.value] = [Math.round(Math.random() * 255), Math.round(Math.random() * 255),
+            Math.round(Math.random() * 255)]
+            return acc
+        }, {})
+        this.emitter = new EventEmitter();
+        
     }
 
     ButtonList.prototype.render = function() {
@@ -127,8 +161,13 @@ $(function () {
         this.element.innerHTML = this.list.reduce(function(acc, el, i) {
             return acc +=
             "<li id='"+el.value+"' class='list-element "+ (self.selectedClass || "") +"'>" +
-                "<span class='el-name'>"+el.value+"</span>" +
-                "<span class='el-shortcut' title='Shortcut letter'>"+el.shortcut+"</span>" +
+                "<p class='color-label' style='background-color: rgba("+self.colors[el.value].join(',')+",255);'></p>"+
+                "<p class='licontent'>" +
+                    "<span class='el-name'>"+el.value+"</span>" +
+                    "<span class='el-shortcut' title='Shortcut letter'>"
+                        +el.shortcut+
+                    "</span>" +
+                "</p>" +
             "</li>"
         }, "")
         var nodes = this.element.querySelectorAll(".list-element")
@@ -156,10 +195,12 @@ $(function () {
             if (self.multiSelect) {
                 el.toggleClass("selected")
                 self.data[el.get(0).id] = !self.data[el.get(0).id]
+                self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: self.data[el.get(0).id] })
             } else {
                 $("."+self.name + " .list-element").removeClass("selected")
                 self.data = self.data === el.get(0).id ? "" : el.get(0).id
                 self.data ? el.addClass("selected") : el.removeClass("selected")
+                self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: !!self.data })
             }
 
         })
@@ -169,10 +210,12 @@ $(function () {
                 if (self.multiSelect) {
                     $(elm).toggleClass("selected")
                     self.data[el.value] = !self.data[el.value]
+                    self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: self.data[el.get(0).id] })
                 } else {
                     $("."+self.name + " .list-element").removeClass("selected")
                     self.data = self.data === el.value ? "" : el.value
                     self.data ? $(elm).addClass("selected") : $(elm).removeClass("selected")
+                    self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: !!self.data })
                 }
             });
         })
@@ -238,53 +281,25 @@ $(function () {
     }
 
     function initTool() {
-        counter = initCounter()
-        $('.controls').on('click', '.skip', function() {
-            reset()
-            postProcessedImage(getUnprocessedImage)
-        })
-        $('.controls').on('click', '.submit', function() {
-            postProcessedImage(getUnprocessedImage)
-        })
-        shortcut.add("Shift+Enter", function() {
-            postProcessedImage(getUnprocessedImage)
-        });
-        shortcut.add("Shift+Space", function() {
-            reset()
-            postProcessedImage(getUnprocessedImage)
-        });
-
         return {
-            "spread": initSpread(spread, keysSpread),
             "annotation": initToppings(toppings, keysToppings),
-            "doughtType": initDough(doughTypes, doughTypesKeys),
             "sauce": initSauces(sauceTypes, sauceTypesKeys),
-            "crust": initCrust(crustTypes, crustTypesKeys),
-            "quantity": initQuantity(quantityTypes, quantityTypesKeys)
         }
     }
 
     function getData() {
         if (!tool) return null;
         return {
-            spread: tool.spread.getData(),
             annotation: tool.annotation.getData(),
-            doughtType: tool.doughtType.getData(),
             sauce: tool.sauce.getData(),
-            crust: tool.crust.getData(),
-            quantity: tool.quantity.getData()
         }
     }
 
     function reset() {
         if (!tool) return null;
-        tool.spread.reset()
         tool.annotation.reset()
-        tool.doughtType.reset()
         tool.sauce.reset()
-        tool.crust.reset()
-        tool.quantity.reset()
     }
 
-    tool = initTool()
+    window.tool = initTool()
 });

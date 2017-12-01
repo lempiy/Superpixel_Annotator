@@ -1,5 +1,10 @@
 let wasmWorker = new Worker('wasm-worker.js');
 
+const drawRect = (x,y, ctx) => {
+    ctx.rect(x, y, 4, 4);
+    ctx.stroke();
+}
+
 class Sprite {
     constructor(src) {
         this.url = src;
@@ -16,7 +21,7 @@ class Sprite {
                 this.h = this.image.height;
                 this.centX = 0;
                 this.centY = 0;
-                resolve();
+                resolve(this.image);
             }
             this.image.onerror = (err) => reject(err);
         })
@@ -66,9 +71,11 @@ class Origin {
         document.body.appendChild(this.netcanvas)
         this.pctx = this.polycanvas.getContext('2d');
         this.bufferCanvas = document.createElement("canvas");
+        document.body.appendChild(this.polycanvas)
         this.bctx = this.bufferCanvas.getContext('2d');
         this.gridImage = new Image();
         this.currentImageData = null;
+        document.body.appendChild(this.bufferCanvas)
     }
 
     transformCoords(coords, scale, netCoords) {
@@ -78,24 +85,34 @@ class Origin {
         }
     }
 
+    init() {
+        this.pctx.clearRect(0, 0, this.polycanvas.width, this.polycanvas.height);
+        this.polycanvas.width = this.gridImage.width;
+        this.polycanvas.height = this.gridImage.height;
+
+        this.nctx.clearRect(0, 0, this.netcanvas.width, this.netcanvas.height);
+        this.netcanvas.width = this.gridImage.width;
+        this.netcanvas.height = this.gridImage.height;
+        this.nctx.drawImage(this.gridImage, 0, 0);
+
+        this.bctx.clearRect(0, 0, this.bctx.width, this.bctx.height);
+    }
+
     load(src) {
-        return new Promise((resolve, reject) => {
-            this.gridImage.onload = () => {
-                this.pctx.clearRect(0, 0, this.polycanvas.width, this.polycanvas.height);
-                this.polycanvas.width = this.gridImage.width;
-                this.polycanvas.height = this.gridImage.height;
-
-                this.nctx.clearRect(0, 0, this.netcanvas.width, this.netcanvas.height);
-                this.netcanvas.width = this.gridImage.width;
-                this.netcanvas.height = this.gridImage.height;
-                this.nctx.drawImage(this.gridImage, 0, 0);
-
-                this.bctx.clearRect(0, 0, this.bctx.width, this.bctx.height);
-                resolve()
-            }
-            this.gridImage.onerror = () => reject()
-            this.gridImage.src = src
-        })
+        if (typeof src === "string") {
+            return new Promise((resolve, reject) => {
+                this.gridImage.onload = () => {
+                    this.init()
+                    resolve()
+                }
+                this.gridImage.onerror = () => reject()
+                this.gridImage.src = src
+            })
+        } else {
+            this.gridImage = src
+            this.init();
+            return Promise.resolve()
+        }
     }
 
     putImageData(imgData) {
@@ -112,94 +129,173 @@ class Origin {
     }
 }
 
-
-window.onload = function() {
-    var c=document.getElementById("myCanvas");
-    var co=document.getElementById("outCanvas");
-    var cc=document.getElementById("centCanvas");
-    c.width = co.width = cc.width =800
-    c.height = co.height = cc.height = 800
-    var ctx=c.getContext("2d");
-    var ctxo=co.getContext("2d");
-    var ctxc=cc.getContext("2d");
-    var resolver = null
-    var workerReady = new Promise((resolve, reject) => {
-        resolver = resolve
-    })
-
-    var origin = new Origin();
-    var sFront = new Sprite("./images/pizzab_annotated_boundry.png");
-    var sBack = new Sprite("./images/pizzab.jpg");
-    let scale = 1
-    const drawRect = (x,y, ctx) => {
-        ctx.rect(x, y, 4, 4);
-        ctx.stroke();
+class View {
+    constructor(viewSize, origin, clickCallback) {
+        this.scale = 1;
+        this.size = viewSize
+        this.origin = origin;
+        this.c = document.getElementById("myCanvas");
+        this.co = document.getElementById("outCanvas");
+        this.cc = document.getElementById("centCanvas");
+        this.c.width = this.co.width = this.cc.width = viewSize.width
+        this.c.height = this.co.height = this.cc.height = viewSize.height
+        this.ctx = this.c.getContext("2d");
+        this.ctxo = this.co.getContext("2d");
+        this.ctxc = this.cc.getContext("2d");
+        this.attachEvent()
+        this.sFront = null
+        this.sBack = null
+        this.clickCallback = clickCallback.bind(this)
     }
 
-
-    c.onclick = e => {
-        
-        coords = origin.transformCoords({x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y})
-        drawRect(e.offsetX, e.offsetY,ctx);
-        console.log("small", e.offsetX, e.offsetY)
-        drawRect(coords.x, coords.y, origin.nctx);
-        console.log("big", coords.x, coords.y, sFront.w)
-        console.log("transformargs", {x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y}, "width", 800 / origin.netcanvas.width, "height",  800/ origin.netcanvas.height)
-        wasmWorker.postMessage({cmd: 'click', coor: origin.transformCoords({x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y})});
-        console.log({x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y}, {cmd: 'click', coor: origin.transformCoords({x: e.offsetX, y: e.offsetY}, scale, {x: sFront.x, y: sFront.y})})
+    resize(viewSize) {
+        this.clear()
+        this.size = viewSize
+        this.c.width = this.co.width = this.cc.width = viewSize.width
+        this.c.height = this.co.height = this.cc.height = viewSize.height
+        const wratio = this.size.width / this.sBack.origW
+        const hratio = this.size.height /this.sBack.origH
+        const ratio = wratio > hratio ? hratio : wratio
+        this.setScale(ratio, true)
+        this.ctxc.putImageData(this.origin.getScaledImageData(this.scale), this.sFront.x, this.sFront.y)
     }
 
-    
-    
-
-    wasmWorker.onmessage = function (e) {
-        perfwasm1 = performance.now();
-        if (e.data.msg === "ready") {
-            console.log("READy", resolver)
-            resolver()
+    attachEvent() {
+        this.c.onclick = e => {
+            return this.clickCallback(e)
         }
-        if (e.data.msg instanceof ImageData) {
-            origin.putImageData(e.data.msg)
-            ctxc.putImageData(origin.getScaledImageData(scale), 0, 0)
-        }
-        e.data = null
     }
 
-    origin.load("./images/pizzab_annotated_boundry.png")
-        .then(() => {
-            workerReady.then(() => {
-                sendImageData()
-            })
+    clear() {
+        this.ctx.clearRect(0, 0, this.c.width, this.c.height);
+        this.ctxo.clearRect(0, 0, this.co.width, this.co.height);
+        this.ctxc.clearRect(0, 0, this.cc.width, this.cc.height);
+    }
+
+    loadSprites(frontUrl, backUrl) {
+        this.clear()
+        this.sFront= new Sprite(frontUrl); 
+        this.sBack= new Sprite(backUrl); 
+        return Promise.all([this.sFront.load(),  this.sBack.load()])
+    }
+
+    setScale(scale, isCenter) {
+        if (isCenter) {
+            this.sBack.centX = this.co.width * 0.5;
+            this.sBack.centY = this.co.height * 0.5;
+
+            this.sFront.centX = this.c.width * 0.5;
+            this.sFront.centY = this.c.height * 0.5;
+        }
+
+        this.sBack.scale(scale)
+        this.sFront.scale(scale)
+
+        this.draw()
+
+        this.scale = scale
+    }
+
+    draw() {
+        this.sBack.draw(this.ctxo)
+        this.sFront.draw(this.ctx)
+    }
+}
+
+class Annotator {
+    constructor(width, height) {
+        this.cvReady = false;
+        this.resolver = null;
+        this.listenWorker();
+        this.workerReady = new Promise((resolve, reject) => {
+            this.resolver = resolve
         })
-
-    sBack.load().then(() => {
-        sBack.centX = co.width / 2;
-        sBack.centY = co.height / 2;
-        scale = 0.7//co.width / sBack.origW
-        if (scale < 1) {
-            sBack.scale(scale)
-        }
-
-        sBack.draw(ctxo)
-    })
-
-    sFront.load().then(() => {
-        sFront.centX = c.width / 2;
-        sFront.centY = c.height / 2;
-        scale = 0.7//c.width / sFront.origW
-        if (scale < 1) {
-            sFront.scale(scale)
-        }
-
-        sFront.draw(ctx)
+        var self = this;
+        this.currentColor = null;
+        this.state = 'fill';
+        this.origin = new Origin();
+        this.view = new View({width: width, height: height}, this.origin, clickGreedCallback)
         
-    })
+        function clickGreedCallback (e) {
+            // 'this' will be Annotator view
+            var coorX = e.pageX - e.target.offsetLeft;
+            var coorY = e.pageY - e.target.offsetTop;
+            let coords = this.origin.transformCoords({x: coorX, y: coorY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
+            drawRect(coorX, coorY, this.ctx);
+            drawRect(coords.x, coords.y, this.origin.nctx);
+            if (self.canFill()) {
+                wasmWorker.postMessage({cmd: 'click', color: self.currentColor, coor: this.origin.transformCoords({x: coorX, y: coorY}, this.scale, {x: this.sFront.x, y: this.sFront.y})});
+            }
+        }
+    }
 
-    function sendImageData() {
-        let message = { cmd: 'imageNew', img: origin.nctx.getImageData(0, 0, c.width, c.height)};
-        console.log(message)
+    canFill() {
+        console.log( this.state === 'fill', this.currentColor)
+        return this.state === 'fill' && this.currentColor
+    }
+
+    canDraw() {
+        return this.state === 'draw'
+    }
+
+    loadNewImage(imageSrc, gridSrc) {
+        return this.view.loadSprites(gridSrc, imageSrc)
+            .then((data) => {
+                const wratio = this.view.size.width / this.view.sBack.origW
+                const hratio = this.view.size.height /this.view.sBack.origH
+                const ratio = wratio > hratio ? hratio : wratio
+                this.view.setScale(ratio, true)
+                return this.origin.load(data[0])
+            })
+            .then(() => {
+                return this.cvReady ? Promise.resolve() : this.workerReady
+            })
+            .then(() => {
+                this.imageDataToWorker()
+            })
+    }
+
+    imageDataToWorker() {
+        let message = { cmd: 'imageNew', img: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height)};
         wasmWorker.postMessage(message)
     }
-};
 
+    listenWorker() {
+        wasmWorker.onmessage = (e) => {
+            let perfwasm1 = performance.now();
+            if (e.data.msg === "ready") {
+                console.log("READy", this.resolver)
+                this.cvReady = true;
+                this.resolver()
+            }
+            if (e.data.msg instanceof ImageData) {
+                this.origin.putImageData(e.data.msg)
+                this.view.ctxc.putImageData(this.origin.getScaledImageData(this.view.scale), this.view.sFront.x, this.view.sFront.y)
+            }
+        }
+    }
 
+}
+
+$(function () {
+    const annotator = new Annotator(window.innerWidth-510, window.innerHeight);
+    annotator.loadNewImage("./images/pep.jpg", "./images/pep_annotated_boundry.png")
+    window.addEventListener("resize", e => {
+        annotator.view.resize({width:window.innerWidth-510, height: window.innerHeight})
+    });
+
+    window.tool.annotation.emitter.subscribe("input:list", data => {
+        if (data.value) {
+            annotator.currentColor = data.color
+        } else {
+            annotator.currentColor = null
+        }
+    })
+    window.tool.sauce.emitter.subscribe("input:list", data => {
+        if (data.value) {
+            annotator.currentColor = data.color
+        } else {
+            annotator.currentColor = null
+        }
+    })
+});
