@@ -23,6 +23,26 @@ $(function () {
     var sauceTypesKeys = ['Shift+Z', 'Shift+X', 'Shift+C', 'Shift+V'];
     var crustTypes = ['Under cooked', 'Good', 'Over cooked'];
     var crustTypesKeys = ['Shift+R', 'Shift+T', 'Shift+Y'];
+    var buttons = [
+        {
+            id: 'Zone Marker',
+            icon: 'static/img/paint-bucket.svg',
+            state: 'fill'
+        },
+        {
+            id: 'Custom Contour',
+            icon: 'static/img/pencil-edit-button.svg',
+            state: 'contour'
+        },
+        {
+            id: 'Undo',
+            icon: 'static/img/undo-arrow.svg',
+        },
+        {
+            id: 'Save',
+            icon: 'static/img/floppy-disk.svg',
+        },
+    ]
     var controls = $('.controls')
     var tool = null;
 
@@ -135,6 +155,50 @@ $(function () {
                 });
             }
         }
+    }
+    
+    function Controls(buttons, hostSelector) {
+        this.buttons = buttons;
+        this.host = $(hostSelector)
+        this.currentState = buttons[0].state
+        this.emitter = new EventEmitter();
+        this.states = buttons.reduce((acc,el) => {
+            if (el.state) acc[el.state] = el
+            return acc
+        }, {})
+    }
+
+    Controls.prototype.render = function() {
+        this.host.html(this.buttons.reduce(function(acc, button) {
+            return acc += `<li>
+                        <button id="${button.id}" title="${button.id}" data-status="${button.state || ''}">
+                            <img src="${button.icon}" alt="${button.id}">
+                        </button>
+                    </li>`
+        }, "<ul class='canvas-controller'>") + "</ul>")
+        $(this.host.children()[0]).children().each((i, el) => {
+            let elm = $(el).children().get(0)
+            let state = $(elm).data("status")
+            if (state) this.states[state].element = elm
+        })
+        let state = this.states[this.currentState]
+        $(state.element).addClass('actived')
+    }
+
+    Controls.prototype.applyEvents = function() {
+        this.host.on('click', 'button', e => {
+            this.emitter.emit(e.currentTarget.id, {
+                state: this.currentState
+            })
+        })
+    }
+
+    Controls.prototype.changeState = function(newState) {
+        let lastState = this.states[this.currentState]
+        this.currentState = newState;
+        let state = this.states[newState];
+        $(lastState.element).removeClass('actived')
+        $(state.element).addClass('actived')
     }
 
     function ButtonList(options) {
@@ -279,9 +343,16 @@ $(function () {
         counter.render()
         return counter
     }
+    function initControls(buttons) {
+        var controls = new Controls(buttons, '.full-canvas')
+        controls.render()
+        controls.applyEvents()
+        return controls
+    }
 
     function initTool() {
         return {
+            "controls": initControls(buttons),
             "annotation": initToppings(toppings, keysToppings),
             "sauce": initSauces(sauceTypes, sauceTypesKeys),
         }
@@ -302,4 +373,14 @@ $(function () {
     }
 
     window.tool = initTool()
+    window.tool.annotation.emitter.subscribe("input:list", e => {
+        const sel = window.tool.sauce.element.querySelector(".list-element.selected")
+        sel && sel.classList.remove("selected")
+        window.tool.sauce.data = ""
+    })
+    window.tool.sauce.emitter.subscribe("input:list", e => {
+        const sel = window.tool.annotation.element.querySelector(".list-element.selected")
+        sel && sel.classList.remove("selected")
+        window.tool.annotation.data = ""
+    })
 });

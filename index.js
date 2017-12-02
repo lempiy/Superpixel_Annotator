@@ -76,6 +76,33 @@ class Origin {
         this.gridImage = new Image();
         this.currentImageData = null;
         document.body.appendChild(this.bufferCanvas)
+        this.clickX = [];
+        this.clickY = [];
+        this.clickDrag = [];
+    }
+
+    addClick(x, y, dragging) {
+        this.clickX.push(x);
+        this.clickY.push(y);
+        this.clickDrag.push(dragging);
+    }
+
+    redraw(){
+        this.nctx.strokeStyle = "#ffffff";
+        this.nctx.lineJoin = "round";
+        this.nctx.lineWidth = 2;
+                  
+        for (var i=0; i < this.clickX.length; i++) {		
+            this.nctx.beginPath();
+            if (this.clickDrag[i] && i){
+                this.nctx.moveTo(this.clickX[i-1], this.clickY[i-1]);
+            } else {
+                this.nctx.moveTo(this.clickX[i]-1, this.clickY[i]);
+            }
+            this.nctx.lineTo(this.clickX[i], this.clickY[i]);
+            this.nctx.closePath();
+            this.nctx.stroke();
+        }
     }
 
     transformCoords(coords, scale, netCoords) {
@@ -130,7 +157,7 @@ class Origin {
 }
 
 class View {
-    constructor(viewSize, origin, clickCallback) {
+    constructor(viewSize, origin, cbs) {
         this.scale = 1;
         this.size = viewSize
         this.origin = origin;
@@ -145,7 +172,13 @@ class View {
         this.attachEvent()
         this.sFront = null
         this.sBack = null
-        this.clickCallback = clickCallback.bind(this)
+        this.clickX = [];
+        this.clickY = [];
+        this.clickDrag = [];
+        this.clickCallback = cbs.clickGreedCallback.bind(this)
+        this.mousedownCallback = cbs.mousedownCallback.bind(this)
+        this.mousemoveCallback = cbs.mousemoveCallback.bind(this)
+        this.mouseupCallback = cbs.mouseupCallback.bind(this)
     }
 
     resize(viewSize) {
@@ -160,10 +193,43 @@ class View {
         this.ctxc.putImageData(this.origin.getScaledImageData(this.scale), this.sFront.x, this.sFront.y)
     }
 
+    addClick(x, y, dragging) {
+        this.clickX.push(x);
+        this.clickY.push(y);
+        this.clickDrag.push(dragging);
+    }
+
+    redraw(){        
+        this.ctx.strokeStyle = "#ffffff";
+        this.ctx.lineJoin = "round";
+        this.ctx.lineWidth = 2;
+                  
+        for (var i=0; i < this.clickX.length; i++) {		
+            this.ctx.beginPath();
+            if (this.clickDrag[i] && i){
+                this.ctx.moveTo(this.clickX[i-1], this.clickY[i-1]);
+            } else {
+                this.ctx.moveTo(this.clickX[i]-1, this.clickY[i]);
+            }
+            this.ctx.lineTo(this.clickX[i], this.clickY[i]);
+            this.ctx.closePath();
+            this.ctx.stroke();
+        }
+    }
+
     attachEvent() {
         this.c.onclick = e => {
             return this.clickCallback(e)
         }
+        this.c.addEventListener('mousedown', (e) => {
+            return this.mousedownCallback(e)
+        })
+        this.c.addEventListener('mousemove', (e) => {
+            return this.mousemoveCallback(e)
+        })
+        this.c.addEventListener('mouseup', (e) => {
+            return this.mouseupCallback(e)
+        })
     }
 
     clear() {
@@ -214,18 +280,57 @@ class Annotator {
         this.currentColor = null;
         this.state = 'fill';
         this.origin = new Origin();
-        this.view = new View({width: width, height: height}, this.origin, clickGreedCallback)
+        this.view = new View({width: width, height: height}, this.origin, 
+        {
+            clickGreedCallback, 
+            mousedownCallback, 
+            mousemoveCallback,
+            mouseupCallback
+        })
+        this.paint = false;
         
         function clickGreedCallback (e) {
             // 'this' will be Annotator view
             var coorX = e.pageX - e.target.offsetLeft;
             var coorY = e.pageY - e.target.offsetTop;
             let coords = this.origin.transformCoords({x: coorX, y: coorY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
-            drawRect(coorX, coorY, this.ctx);
-            drawRect(coords.x, coords.y, this.origin.nctx);
+            // drawRect(coorX, coorY, this.ctx);
+            // drawRect(coords.x, coords.y, this.origin.nctx);
             if (self.canFill()) {
                 wasmWorker.postMessage({cmd: 'click', color: self.currentColor, coor: this.origin.transformCoords({x: coorX, y: coorY}, this.scale, {x: this.sFront.x, y: this.sFront.y})});
             }
+        }
+
+        function mousedownCallback (e) {
+            if (!self.canDraw()) return;
+            var mouseX = e.pageX - e.target.offsetLeft;
+            var mouseY = e.pageY - e.target.offsetTop;
+            let coords = this.origin.transformCoords({x: mouseX, y: mouseY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
+                  
+            self.paint = true;
+            this.addClick(mouseX, mouseY);
+            this.redraw();
+            this.origin.addClick(coords.x, coords.y);
+            this.origin.redraw();
+        }
+
+        function mousemoveCallback (e) {
+            if (!self.canDraw()) return;
+            var mouseX = e.pageX - e.target.offsetLeft;
+            var mouseY = e.pageY - e.target.offsetTop;
+            let coords = this.origin.transformCoords({x: mouseX, y: mouseY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
+                  
+            if (self.paint) {
+                this.addClick(mouseX, mouseY, true);
+                this.redraw();
+                this.origin.addClick(coords.x, coords.y, true);
+                this.origin.redraw();
+            }
+        }
+
+        function mouseupCallback (e) {
+            if (!self.canDraw()) return;
+            self.paint = false;
         }
     }
 
@@ -235,7 +340,7 @@ class Annotator {
     }
 
     canDraw() {
-        return this.state === 'draw'
+        return this.state === 'contour'
     }
 
     loadNewImage(imageSrc, gridSrc) {
@@ -251,12 +356,12 @@ class Annotator {
                 return this.cvReady ? Promise.resolve() : this.workerReady
             })
             .then(() => {
-                this.imageDataToWorker()
+                this.imageDataToWorker(true)
             })
     }
 
-    imageDataToWorker() {
-        let message = { cmd: 'imageNew', img: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height)};
+    imageDataToWorker(initial) {
+        let message = { cmd: 'imageNew', img: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height), initial: !!initial};
         wasmWorker.postMessage(message)
     }
 
@@ -296,6 +401,19 @@ $(function () {
             annotator.currentColor = data.color
         } else {
             annotator.currentColor = null
+        }
+    })
+    window.tool.controls.emitter.subscribe('Custom Contour', data => {
+        if (data.state !== 'contour') {
+            window.tool.controls.changeState('contour')
+            annotator.state = 'contour'
+        }
+    })
+    window.tool.controls.emitter.subscribe('Zone Marker', data => {
+        if (data.state !== 'fill') {
+            annotator.imageDataToWorker(false)
+            window.tool.controls.changeState('fill')
+            annotator.state = 'fill'
         }
     })
 });

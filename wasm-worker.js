@@ -8,7 +8,7 @@ self.onmessage = function (e) {
 	switch (e.data.cmd) {
         case 'imageNew':
         console.log('imageNew recieved')
-            getContours(e.data.img, e.data.json);
+            getContours(e.data.img, e.data.initial);
             break;
         case 'click':
             drawSegment([e.data.coor.x, e.data.coor.y], e.data.color)
@@ -17,7 +17,7 @@ self.onmessage = function (e) {
 }
 
 
-let contours, hierarchy, dst, w, h, gis;
+let contours, hierarchy, dst, segments, w, h, gis;
 
 function drawSegment(point, clr) {
     let color = new cv.Scalar(clr[0], clr[1],
@@ -25,15 +25,15 @@ function drawSegment(point, clr) {
     for (let i = 0; i < contours.size(); ++i) {
         let pip = cv.pointPolygonTest(contours.get(i), point, false)
         if (pip === 1 && i !== gis) {
-            cv.drawContours(dst, contours, i, color, cv.LineTypes.FILLED.value, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
+            cv.drawContours(segments, contours, i, color, cv.LineTypes.FILLED.value, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
         }
     }
-    dst = dst;
+    segments = segments;
     color.delete();
-    postMessage({msg: new ImageData(new Uint8ClampedArray(dst.data()), w, h), poly: true});
+    postMessage({msg: new ImageData(new Uint8ClampedArray(segments.data()), w, h), poly: true});
 }
 
-function getContours(imageData, json) {
+function getContours(imageData, initial) {
     let tresh = 1;
     let max_tresh = 1;
     w = imageData.width;
@@ -66,5 +66,8 @@ function getContours(imageData, json) {
         }
     }
     imageData = null
-    img.delete(); mask.delete(); zero.delete();
+    if (initial) {
+        segments = dst.clone()
+    }
+    img.delete(); mask.delete(); zero.delete(); dst.delete();
 }
