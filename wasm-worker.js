@@ -13,11 +13,20 @@ self.onmessage = function (e) {
         case 'click':
             drawSegment([e.data.coor.x, e.data.coor.y], e.data.color)
             break;
+        case 'put':
+            putSegments(e.data.img);
+            break;
 	}
 }
 
 
 let contours, hierarchy, dst, segments, w, h, gis;
+
+function putSegments(imageData) {
+    let img = cv.matFromArray(imageData, cv.CV_8UC4);
+    img.convertTo(segments, cv.CV_8U, 1, 0);
+    img.delete();
+}
 
 function drawSegment(point, clr) {
     let color = new cv.Scalar(clr[0], clr[1],
@@ -34,6 +43,14 @@ function drawSegment(point, clr) {
 }
 
 function getContours(imageData, initial) {
+    if (initial) {
+        // Clean up memory on new image
+        if (contours) contours.delete();
+        if (hierarchy) hierarchy.delete();
+        if (dst) dst.delete();
+        if (segments) segments.delete();
+        if (gis) gis.delete();
+    }
     let tresh = 1;
     let max_tresh = 1;
     w = imageData.width;

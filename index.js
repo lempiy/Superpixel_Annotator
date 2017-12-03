@@ -28,6 +28,24 @@ class Sprite {
         
     }
 
+    static fromCanvas(canvas) {
+        const sprite = new Sprite();
+        sprite._loaded = Promise.resolve()
+        sprite.url = null;
+        sprite.image = canvas;
+        sprite.x = 0;
+        sprite.y = 0;
+        sprite._centX = 0;
+        sprite._centY = 0;
+        sprite.origW = sprite.image.width;
+        sprite.origH = sprite.image.height;
+        sprite.w = sprite.image.width;
+        sprite.h = sprite.image.height;
+        sprite.centX = 0;
+        sprite.centY = 0;
+        return sprite;
+    }
+
     get centX () {
         return this._centX
     }
@@ -52,6 +70,7 @@ class Sprite {
     }
 
     draw(ctx) {
+        if (!this.image) return;
         ctx.drawImage(this.image, this.x, this.y, this.w, this.h);
     }
 
@@ -70,12 +89,9 @@ class Origin {
         this.polycanvas = document.createElement("canvas");
         document.body.appendChild(this.netcanvas)
         this.pctx = this.polycanvas.getContext('2d');
-        this.bufferCanvas = document.createElement("canvas");
         document.body.appendChild(this.polycanvas)
-        this.bctx = this.bufferCanvas.getContext('2d');
         this.gridImage = new Image();
         this.currentImageData = null;
-        document.body.appendChild(this.bufferCanvas)
         this.clickX = [];
         this.clickY = [];
         this.clickDrag = [];
@@ -87,7 +103,7 @@ class Origin {
         this.clickDrag.push(dragging);
     }
 
-    redraw(){
+    drawContour(){
         this.nctx.strokeStyle = "#ffffff";
         this.nctx.lineJoin = "round";
         this.nctx.lineWidth = 2;
@@ -105,10 +121,16 @@ class Origin {
         }
     }
 
+    clearLines() {
+        this.clickX = [];
+        this.clickY = [];
+        this.clickDrag = [];
+    }
+
     transformCoords(coords, scale, netCoords) {
         return {
-            x: Math.floor((coords.x - netCoords.x) / scale),
-            y: Math.floor((coords.y - netCoords.y) / scale),
+            x: (coords.x - netCoords.x) / scale,
+            y: (coords.y - netCoords.y) / scale,
         }
     }
 
@@ -121,8 +143,6 @@ class Origin {
         this.netcanvas.width = this.gridImage.width;
         this.netcanvas.height = this.gridImage.height;
         this.nctx.drawImage(this.gridImage, 0, 0);
-
-        this.bctx.clearRect(0, 0, this.bctx.width, this.bctx.height);
     }
 
     load(src) {
@@ -146,14 +166,6 @@ class Origin {
         this.currentImageData = imgData;
         this.pctx.putImageData(imgData, 0, 0)
     }
-
-    getScaledImageData(ratio) {
-        this.bufferCanvas.width = this.polycanvas.width * ratio
-        this.bufferCanvas.height = this.polycanvas.height * ratio
-        
-        this.bctx.drawImage(this.polycanvas, 0, 0, this.bufferCanvas.width, this.bufferCanvas.height)
-        return this.bctx.getImageData(0, 0, this.bufferCanvas.width, this.bufferCanvas.height)
-    }
 }
 
 class View {
@@ -172,6 +184,7 @@ class View {
         this.attachEvent()
         this.sFront = null
         this.sBack = null
+        this.sCent = null
         this.clickX = [];
         this.clickY = [];
         this.clickDrag = [];
@@ -190,7 +203,6 @@ class View {
         const hratio = this.size.height /this.sBack.origH
         const ratio = wratio > hratio ? hratio : wratio
         this.setScale(ratio, true)
-        this.ctxc.putImageData(this.origin.getScaledImageData(this.scale), this.sFront.x, this.sFront.y)
     }
 
     addClick(x, y, dragging) {
@@ -199,10 +211,10 @@ class View {
         this.clickDrag.push(dragging);
     }
 
-    redraw(){        
+    drawContour(width){
         this.ctx.strokeStyle = "#ffffff";
         this.ctx.lineJoin = "round";
-        this.ctx.lineWidth = 2;
+        this.ctx.lineWidth = width;
                   
         for (var i=0; i < this.clickX.length; i++) {		
             this.ctx.beginPath();
@@ -215,6 +227,12 @@ class View {
             this.ctx.closePath();
             this.ctx.stroke();
         }
+    }
+
+    clearLines() {
+        this.clickX = [];
+        this.clickY = [];
+        this.clickDrag = [];
     }
 
     attachEvent() {
@@ -240,8 +258,8 @@ class View {
 
     loadSprites(frontUrl, backUrl) {
         this.clear()
-        this.sFront= new Sprite(frontUrl); 
-        this.sBack= new Sprite(backUrl); 
+        this.sFront = new Sprite(frontUrl); 
+        this.sBack = new Sprite(backUrl);
         return Promise.all([this.sFront.load(),  this.sBack.load()])
     }
 
@@ -252,10 +270,15 @@ class View {
 
             this.sFront.centX = this.c.width * 0.5;
             this.sFront.centY = this.c.height * 0.5;
+            if (this.sCent) {
+                this.sCent.centX = this.cc.width * 0.5;
+                this.sCent.centY = this.cc.height * 0.5;
+            }
         }
 
         this.sBack.scale(scale)
         this.sFront.scale(scale)
+        if (this.sCent) this.sCent.scale(scale)
 
         this.draw()
 
@@ -265,11 +288,51 @@ class View {
     draw() {
         this.sBack.draw(this.ctxo)
         this.sFront.draw(this.ctx)
+        if (this.sCent) this.sCent.draw(this.ctxc);
+    }
+}
+
+class UndoQueue {
+
+    constructor(length) {
+        this.length = length;
+        this._queue = [];
+        this.cursor = null;
+    }
+
+    addToQueue(action) {
+        if (this.cursor === null || (this._queue.length !== this.length && this.cursor === this._queue.length - 1)) {
+            this._queue.push(action)
+            this.cursor = this._queue.length - 1;
+        } else if (this.cursor && this.cursor === this._queue.length - 1) {
+            this._queue.shift()
+            this._queue.push(action)
+        } else {
+            this.cursor++;
+            this._queue[this.cursor] = action
+        }
+    }
+
+    getPrivious() {
+        if (this.cursor) {
+            this.cursor--
+            return this._queue[this.cursor]
+        }
+        return null
+    }
+
+    getNext() {
+        if (this._queue.length && this.cursor !== this._queue.length - 1) {
+            this.cursor++
+            return this._queue[this.cursor]
+        }
+        return null
     }
 }
 
 class Annotator {
     constructor(width, height) {
+        this.undoq = null;
         this.cvReady = false;
         this.resolver = null;
         this.listenWorker();
@@ -309,9 +372,9 @@ class Annotator {
                   
             self.paint = true;
             this.addClick(mouseX, mouseY);
-            this.redraw();
+            this.drawContour(Math.round(2*this.scale));
             this.origin.addClick(coords.x, coords.y);
-            this.origin.redraw();
+            this.origin.drawContour();
         }
 
         function mousemoveCallback (e) {
@@ -322,20 +385,25 @@ class Annotator {
                   
             if (self.paint) {
                 this.addClick(mouseX, mouseY, true);
-                this.redraw();
+                this.drawContour(Math.round(2*this.scale));
                 this.origin.addClick(coords.x, coords.y, true);
-                this.origin.redraw();
+                this.origin.drawContour();
             }
         }
 
         function mouseupCallback (e) {
             if (!self.canDraw()) return;
             self.paint = false;
+            this.clearLines()
+            this.origin.clearLines()
+            self.undoq.addToQueue({type: 'draw', 
+                contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
+                segments: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height),
+            })
         }
     }
 
     canFill() {
-        console.log( this.state === 'fill', this.currentColor)
         return this.state === 'fill' && this.currentColor
     }
 
@@ -343,19 +411,65 @@ class Annotator {
         return this.state === 'contour'
     }
 
+    undoSegments(segments) {
+        this.origin.putImageData(segments);
+        this.view.ctxc.clearRect(0, 0, this.view.cc.width, this.view.cc.height)
+        this.view.sCent.draw(this.view.ctxc)
+        this.putPolygonsToWorker()
+    }
+
+    undoContours(contours) {
+        this.origin.nctx.clearRect(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height)
+        this.origin.nctx.putImageData(contours, 0,0)
+        this.view.ctx.clearRect(0, 0, this.view.c.width, this.view.c.height)
+        this.view.sFront.draw(this.view.ctx)
+        if (this.state === 'fill') {
+            this.imageDataToWorker(false)
+        }
+    }
+
+    undo() {
+        const action = this.undoq.getPrivious()
+        if (action) {
+            switch (action.type) {
+                case 'fill':
+                    this.undoSegments(action.segments)
+                    this.undoContours(action.contours)
+                    break;
+                case 'draw':
+                    this.undoContours(action.contours)
+                    this.undoSegments(action.segments)
+                    break;
+                case 'initial':
+                    this.undoContours(action.contours)
+                    this.origin.pctx.clearRect(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height)
+                    this.view.ctxc.clearRect(0, 0, this.view.cc.width, this.view.cc.height)
+                    this.view.sCent.draw(this.view.ctxc)
+                    this.putPolygonsToWorker()
+                    break;
+            }
+        }
+    }
+
     loadNewImage(imageSrc, gridSrc) {
         return this.view.loadSprites(gridSrc, imageSrc)
             .then((data) => {
-                const wratio = this.view.size.width / this.view.sBack.origW
-                const hratio = this.view.size.height /this.view.sBack.origH
-                const ratio = wratio > hratio ? hratio : wratio
-                this.view.setScale(ratio, true)
+                this.undoq = new UndoQueue(5);
                 return this.origin.load(data[0])
             })
             .then(() => {
+                const wratio = this.view.size.width / this.view.sBack.origW
+                const hratio = this.view.size.height /this.view.sBack.origH
+                const ratio = wratio > hratio ? hratio : wratio
+                this.view.sFront.image = this.origin.netcanvas;
+                this.view.sCent = Sprite.fromCanvas(this.origin.polycanvas);
+                this.view.setScale(ratio, true)
                 return this.cvReady ? Promise.resolve() : this.workerReady
             })
             .then(() => {
+                this.undoq.addToQueue({type: 'initial', 
+                    contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
+                })
                 this.imageDataToWorker(true)
             })
     }
@@ -365,17 +479,23 @@ class Annotator {
         wasmWorker.postMessage(message)
     }
 
+    putPolygonsToWorker() {
+        let message = { cmd: 'put', img: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height)};
+        wasmWorker.postMessage(message)
+    }
+
     listenWorker() {
         wasmWorker.onmessage = (e) => {
             let perfwasm1 = performance.now();
             if (e.data.msg === "ready") {
-                console.log("READy", this.resolver)
+                console.log("READY")
                 this.cvReady = true;
                 this.resolver()
             }
             if (e.data.msg instanceof ImageData) {
                 this.origin.putImageData(e.data.msg)
-                this.view.ctxc.putImageData(this.origin.getScaledImageData(this.view.scale), this.view.sFront.x, this.view.sFront.y)
+                this.view.sCent.draw(this.view.ctxc)
+                this.undoq.addToQueue({type: 'fill', segments: e.data.msg, contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height)})
             }
         }
     }
@@ -415,5 +535,8 @@ $(function () {
             window.tool.controls.changeState('fill')
             annotator.state = 'fill'
         }
+    })
+    window.tool.controls.emitter.subscribe('Undo', data => {
+        annotator.undo()
     })
 });
