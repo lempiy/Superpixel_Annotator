@@ -87,9 +87,7 @@ class Origin {
         this.netcanvas = document.createElement("canvas");
         this.nctx = this.netcanvas.getContext('2d');
         this.polycanvas = document.createElement("canvas");
-        document.body.appendChild(this.netcanvas)
         this.pctx = this.polycanvas.getContext('2d');
-        document.body.appendChild(this.polycanvas)
         this.gridImage = new Image();
         this.currentImageData = null;
         this.clickX = [];
