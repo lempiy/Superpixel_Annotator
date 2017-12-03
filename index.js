@@ -191,6 +191,8 @@ class View {
         this.shiftFactor = 0.0;
         this.shiftX = 0;
         this.shiftY = 0;
+        this.dragZoom = false;
+        this.dragStart = null;
         this.clickCallback = cbs.clickGreedCallback.bind(this)
         this.mousedownCallback = cbs.mousedownCallback.bind(this)
         this.mousemoveCallback = cbs.mousemoveCallback.bind(this)
@@ -280,7 +282,6 @@ class View {
             this.shiftY += shiftY
         }
         if (isCenter) {
-            console.log(this.shiftX, this.shiftY)
             this.sBack.centX = this.co.width * 0.5 + (this.co.width * this.shiftX);
             this.sBack.centY = this.co.height * 0.5 + (this.co.height * this.shiftY);
 
@@ -371,6 +372,7 @@ class Annotator {
         this.paint = false;
         
         function clickGreedCallback (e) {
+            if (this.dragZoom || this.dragStart) return;
             // 'this' will be Annotator view
             var coorX = e.pageX - e.target.offsetLeft;
             var coorY = e.pageY - e.target.offsetTop;
@@ -383,7 +385,10 @@ class Annotator {
         }
 
         function mousedownCallback (e) {
-            self.hover = true;
+            if (this.dragZoom) {
+                this.dragStart = {x: e.pageX - e.target.offsetLeft, y: e.pageY - e.target.offsetTop}
+                return
+            }
             if (!self.canDraw()) return;
             var mouseX = e.pageX - e.target.offsetLeft;
             var mouseY = e.pageY - e.target.offsetTop;
@@ -397,6 +402,34 @@ class Annotator {
         }
 
         function mousemoveCallback (e) {
+            if (this.dragZoom && this.dragStart) {
+                var mouseX = e.pageX - e.target.offsetLeft;
+                var mouseY = e.pageY - e.target.offsetTop;
+                const isLeft = mouseX < this.dragStart.x;
+                const isTop = mouseY < this.dragStart.y;
+                const dragStartPointX =  this.dragStart.x;
+                const dragStartPointY = this.dragStart.y;
+                const maxShiftStep = 0.5;
+                const outSetX = Math.abs(dragStartPointX - mouseX);
+                const outSetY = Math.abs(dragStartPointY - mouseY);
+                const shiftX = outSetX * maxShiftStep / dragStartPointX;
+                const shiftY = outSetY * maxShiftStep / dragStartPointY;
+                if (!isTop && isLeft) {
+                    this.setScale(this.scale, true,
+                        -shiftX, shiftY)
+                } else if (isTop && isLeft) {
+                    this.setScale(this.scale, true,
+                        -shiftX, -shiftY)
+                } else if (isTop && !isLeft) {
+                    this.setScale(this.scale, true,
+                        shiftX, -shiftY)
+                } else {
+                    this.setScale(this.scale, true,
+                        shiftX, shiftY)
+                }
+                this.dragStart = {x: e.pageX - e.target.offsetLeft, y: e.pageY - e.target.offsetTop}
+                return
+            }
             if (!self.canDraw()) return;
             var mouseX = e.pageX - e.target.offsetLeft;
             var mouseY = e.pageY - e.target.offsetTop;
@@ -411,7 +444,10 @@ class Annotator {
         }
 
         function mouseupCallback (e) {
-            self.hover = true;
+            if (this.dragStart) {
+                this.dragStart = null
+                return
+            }
             if (!self.canDraw()) return;
             self.paint = false;
             this.clearLines()
@@ -580,6 +616,19 @@ $(function () {
     window.addEventListener("resize", e => {
         annotator.view.resize({width:window.innerWidth-510, height: window.innerHeight})
     });
+
+    window.addEventListener('keydown', e => {
+        if (e.which === 16)  { // SHIFT
+            annotator.view.dragZoom = true
+        }
+    })
+
+    window.addEventListener('keyup', e => {
+        if (e.which === 16)  { // SHIFT
+            annotator.view.dragZoom = false
+            annotator.view.dragStart = false;
+        }
+    })
 
     window.tool.annotation.emitter.subscribe("input:list", data => {
         if (data.value) {

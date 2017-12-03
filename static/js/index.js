@@ -274,12 +274,12 @@ $(function () {
                 if (self.multiSelect) {
                     $(elm).toggleClass("selected")
                     self.data[el.value] = !self.data[el.value]
-                    self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: self.data[el.get(0).id] })
+                    self.emitter.emit("input:list", { key: el.value, color: self.colors[el.value], value: self.data[el.value] })
                 } else {
                     $("."+self.name + " .list-element").removeClass("selected")
                     self.data = self.data === el.value ? "" : el.value
                     self.data ? $(elm).addClass("selected") : $(elm).removeClass("selected")
-                    self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: !!self.data })
+                    self.emitter.emit("input:list", { key: el.value, color: self.colors[el.value], value: !!self.data })
                 }
             });
         })
