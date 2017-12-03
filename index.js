@@ -188,10 +188,14 @@ class View {
         this.clickX = [];
         this.clickY = [];
         this.clickDrag = [];
+        this.shiftFactor = 0.0;
+        this.shiftX = 0;
+        this.shiftY = 0;
         this.clickCallback = cbs.clickGreedCallback.bind(this)
         this.mousedownCallback = cbs.mousedownCallback.bind(this)
         this.mousemoveCallback = cbs.mousemoveCallback.bind(this)
         this.mouseupCallback = cbs.mouseupCallback.bind(this)
+        this.wheelCallback = cbs.wheelCallback.bind(this)
     }
 
     resize(viewSize) {
@@ -248,6 +252,10 @@ class View {
         this.c.addEventListener('mouseup', (e) => {
             return this.mouseupCallback(e)
         })
+        this.c.addEventListener('wheel', (e) => {
+            event.preventDefault()
+            return this.wheelCallback(e)
+        })
     }
 
     clear() {
@@ -263,16 +271,24 @@ class View {
         return Promise.all([this.sFront.load(),  this.sBack.load()])
     }
 
-    setScale(scale, isCenter) {
+    setScale(scale, isCenter, shiftX, shiftY) {
+        this.clear()
+        if (shiftX) {
+            this.shiftX += shiftX
+        }
+        if (shiftY) {
+            this.shiftY += shiftY
+        }
         if (isCenter) {
-            this.sBack.centX = this.co.width * 0.5;
-            this.sBack.centY = this.co.height * 0.5;
+            console.log(this.shiftX, this.shiftY)
+            this.sBack.centX = this.co.width * 0.5 + (this.co.width * this.shiftX);
+            this.sBack.centY = this.co.height * 0.5 + (this.co.height * this.shiftY);
 
-            this.sFront.centX = this.c.width * 0.5;
-            this.sFront.centY = this.c.height * 0.5;
+            this.sFront.centX = this.c.width * 0.5 + (this.c.width * this.shiftX);
+            this.sFront.centY = this.c.height * 0.5 + (this.co.height * this.shiftY);
             if (this.sCent) {
-                this.sCent.centX = this.cc.width * 0.5;
-                this.sCent.centY = this.cc.height * 0.5;
+                this.sCent.centX = this.cc.width * 0.5 + (this.cc.width * this.shiftX);
+                this.sCent.centY = this.cc.height * 0.5 + (this.co.height * this.shiftY);
             }
         }
 
@@ -332,6 +348,7 @@ class UndoQueue {
 
 class Annotator {
     constructor(width, height) {
+        this.hover = false;
         this.undoq = null;
         this.cvReady = false;
         this.resolver = null;
@@ -348,7 +365,8 @@ class Annotator {
             clickGreedCallback, 
             mousedownCallback, 
             mousemoveCallback,
-            mouseupCallback
+            mouseupCallback,
+            wheelCallback
         })
         this.paint = false;
         
@@ -365,6 +383,7 @@ class Annotator {
         }
 
         function mousedownCallback (e) {
+            self.hover = true;
             if (!self.canDraw()) return;
             var mouseX = e.pageX - e.target.offsetLeft;
             var mouseY = e.pageY - e.target.offsetTop;
@@ -392,6 +411,7 @@ class Annotator {
         }
 
         function mouseupCallback (e) {
+            self.hover = true;
             if (!self.canDraw()) return;
             self.paint = false;
             this.clearLines()
@@ -401,6 +421,57 @@ class Annotator {
                 segments: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height),
             })
         }
+
+        function wheelCallback (e) {
+            var mouseX = e.pageX - e.target.offsetLeft;
+            var mouseY = e.pageY - e.target.offsetTop;
+            const isLeft = mouseX < this.cc.width * 0.5;
+            const isTop = mouseY < this.cc.height * 0.5;
+            const canvasCenterX = this.cc.width * 0.5;
+            const canvasCenterY = this.cc.height * 0.5;
+            const maxShiftStep = 0.05;
+            const outSetX = Math.abs(canvasCenterX - mouseX);
+            const outSetY = Math.abs(canvasCenterY - mouseY);
+            const shiftX = outSetX * maxShiftStep / canvasCenterX;
+            const shiftY = outSetY * maxShiftStep / canvasCenterY;
+            if (e.deltaY < 0) {
+                if (Annotator.isPointInCircle(mouseX, mouseY, canvasCenterX, canvasCenterY, Math.floor(this.size.width / 8))) {
+                    this.setScale(this.scale + 0.1, false)
+                } else if (!isTop && isLeft) {
+                    this.setScale(this.scale + 0.1, true,
+                        shiftX, -shiftY)
+                } else if (isTop && isLeft) {
+                    this.setScale(this.scale + 0.1, true,
+                        shiftX, shiftY)
+                } else if (isTop && !isLeft) {
+                    this.setScale(this.scale + 0.1, true,
+                        -shiftX, shiftY)
+                } else {
+                    this.setScale(this.scale + 0.1, true,
+                        -shiftX, -shiftY)
+                }
+            } else {
+                if (Annotator.isPointInCircle(mouseX, mouseY, canvasCenterX, canvasCenterY, Math.floor(this.size.width / 8))) {
+                    this.setScale(this.scale - 0.1, false)
+                } else if (!isTop && isLeft) {
+                    this.setScale(this.scale - 0.1, true,
+                        -shiftX, shiftY)
+                } else if (isTop && isLeft) {
+                    this.setScale(this.scale - 0.1, true,
+                        -shiftX, -shiftY)
+                } else if (isTop && !isLeft) {
+                    this.setScale(this.scale - 0.1, true,
+                        shiftX, -shiftY)
+                } else {
+                    this.setScale(this.scale - 0.1, true,
+                        shiftX, shiftY)
+                }
+            }
+        }
+    }
+
+    static isPointInCircle(x, y, cx, cy, radius) {
+        return Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) <= radius
     }
 
     canFill() {
@@ -462,6 +533,7 @@ class Annotator {
                 const hratio = this.view.size.height /this.view.sBack.origH
                 const ratio = wratio > hratio ? hratio : wratio
                 this.view.sFront.image = this.origin.netcanvas;
+                this.view.shiftFactor = 0.0;
                 this.view.sCent = Sprite.fromCanvas(this.origin.polycanvas);
                 this.view.setScale(ratio, true)
                 return this.cvReady ? Promise.resolve() : this.workerReady
