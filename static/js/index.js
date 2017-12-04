@@ -86,6 +86,7 @@ class Origin {
     constructor() {
         this.netcanvas = document.createElement("canvas");
         this.nctx = this.netcanvas.getContext('2d');
+        document.body.appendChild(this.netcanvas)
         this.polycanvas = document.createElement("canvas");
         document.body.appendChild(this.polycanvas)
         this.pctx = this.polycanvas.getContext('2d');
@@ -104,20 +105,25 @@ class Origin {
 
     drawContour(){
         this.nctx.strokeStyle = "#ffffff";
-        this.nctx.lineJoin = "round";
-        this.nctx.lineWidth = 2;
+        this.nctx.lineJoin = "bevel";
+        this.nctx.lineWidth = 1;
+        //this.nctx.translate(0.5, 0.5);
                   
         for (var i=0; i < this.clickX.length; i++) {		
             this.nctx.beginPath();
             if (this.clickDrag[i] && i){
-                this.nctx.moveTo(this.clickX[i-1], this.clickY[i-1]);
+                this.nctx.moveTo(Math.floor(this.clickX[i-1]), Math.floor(this.clickY[i-1]));
+                console.log('FROM: ', Math.floor(this.clickX[i-1]), Math.floor(this.clickY[i-1]))
             } else {
-                this.nctx.moveTo(this.clickX[i]-1, this.clickY[i]);
+                this.nctx.moveTo(Math.floor(this.clickX[i]-1), Math.floor(this.clickY[i]));
+                console.log('FROM: ', Math.floor(this.clickX[i]-1), Math.floor(this.clickY[i]))
             }
-            this.nctx.lineTo(this.clickX[i], this.clickY[i]);
+            console.log('TO: ', Math.floor(this.clickX[i]), Math.floor(this.clickY[i]))
+            this.nctx.lineTo(Math.floor(this.clickX[i]), Math.floor(this.clickY[i]));
             this.nctx.closePath();
             this.nctx.stroke();
         }
+        //this.nctx.translate(0, 0);
     }
 
     clearLines() {
@@ -229,15 +235,15 @@ class View {
 
     drawContour(width){
         this.ctx.strokeStyle = "#ffffff";
-        this.ctx.lineJoin = "round";
+        this.ctx.lineJoin = "bevel";
         this.ctx.lineWidth = width;
                   
         for (var i=0; i < this.clickX.length; i++) {		
             this.ctx.beginPath();
             if (this.clickDrag[i] && i){
-                this.ctx.moveTo(this.clickX[i-1], this.clickY[i-1]);
+                this.ctx.moveTo(this.clickX[i-1], this.clickY[i-1] + 0.5);
             } else {
-                this.ctx.moveTo(this.clickX[i]-1, this.clickY[i]);
+                this.ctx.moveTo(this.clickX[i]-1, this.clickY[i] + 0.5);
             }
             this.ctx.lineTo(this.clickX[i], this.clickY[i]);
             this.ctx.closePath();
@@ -406,7 +412,7 @@ class Annotator {
                   
             self.paint = true;
             this.addClick(mouseX, mouseY);
-            this.drawContour(Math.round(2*this.scale));
+            this.drawContour(1);
             this.origin.addClick(coords.x, coords.y);
             this.origin.drawContour();
         }
@@ -447,7 +453,7 @@ class Annotator {
                   
             if (self.paint) {
                 this.addClick(mouseX, mouseY, true);
-                this.drawContour(Math.round(2*this.scale));
+                this.drawContour(1);
                 this.origin.addClick(coords.x, coords.y, true);
                 this.origin.drawContour();
             }
@@ -622,7 +628,7 @@ class Annotator {
 
 $(function () {
     const annotator = new Annotator(window.innerWidth-510, window.innerHeight);
-    annotator.loadNewImage("./images/pep.jpg", "./images/pep_annotated_boundry.png")
+    annotator.loadNewImage("./images/pep.jpg", "./images/out.png")
     window.addEventListener("resize", e => {
         annotator.view.resize({width:window.innerWidth-510, height: window.innerHeight})
     });

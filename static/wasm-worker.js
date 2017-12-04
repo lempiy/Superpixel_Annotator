@@ -71,7 +71,7 @@ function getContours(imageData, initial) {
     contours = new cv.MatVector();
     hierarchy = new cv.Mat();
 
-    cv.findContours(img, contours, hierarchy, cv.RetrievalModes.RETR_CCOMP.value, cv.ContourApproximationModes.CHAIN_APPROX_SIMPLE.value, [0,0])
+    cv.findContours(img, contours, hierarchy, cv.RetrievalModes.RETR_CCOMP.value, cv.ContourApproximationModes.CHAIN_APPROX_NONE.value, [0,0])
 
     let gsarea = 0;
 
