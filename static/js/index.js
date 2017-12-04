@@ -1,386 +1,681 @@
-$(function () {
-    'use strict';
-    var toppings = ['Mushroom', 'Onion', 'Spring Onion',
-    'Jalapenos', 'Fresh Tomato', 'Pineapple', 'Cherry Peppers',
-    'Cherry Tomato', 'Capsicum', 'Baby Spinach', 'Beef', 'Italian Sausage',
-    'Pepperoni', 'Prawns', 'Bacon', 'Pork Fennel sausage', 'Chicken', 'Ham',
-    'Camembert', 'Feta', 'Anchovies', 'Olives', 'Avocado', 'Roasted Pepper',
-    'Chorizo'];
-    
-    var keysToppings = '1234567890qwertyuiopasdfg'.toUpperCase().split('');
-    var spread = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
-    var keysSpread = spread.map(function(item) {
-        if(item === "10") {
-            return "Shift+0"
-        }
-        return "Shift+"+item
-    })
-    var doughTypes = ['Cheesy', 'Classic', 'Thin'];
-    var doughTypesKeys = ["Shift+Q", "Shift+W", "Shift+E"];
-    var quantityTypes = ['Less', 'Exact', 'Over'];
-    var quantityTypesKeys = ['Shift+A', 'Shift+S', 'Shift+D'];
-    var sauceTypes = ['Tomato', 'BBQ', 'Creme fraiche', 'none'];
-    var sauceTypesKeys = ['Shift+Z', 'Shift+X', 'Shift+C', 'Shift+V'];
-    var crustTypes = ['Under cooked', 'Good', 'Over cooked'];
-    var crustTypesKeys = ['Shift+R', 'Shift+T', 'Shift+Y'];
-    var buttons = [
-        {
-            id: 'Zone Marker',
-            icon: 'static/img/paint-bucket.svg',
-            state: 'fill'
-        },
-        {
-            id: 'Custom Contour',
-            icon: 'static/img/pencil-edit-button.svg',
-            state: 'contour'
-        },
-        {
-            id: 'Undo',
-            icon: 'static/img/undo-arrow.svg',
-        },
-        {
-            id: 'Save',
-            icon: 'static/img/floppy-disk.svg',
-        },
-    ]
-    var controls = $('.controls')
-    var tool = null;
+let wasmWorker = new Worker('wasm-worker.js');
 
-    var imageBlock = $('.image-block')
+const drawRect = (x,y, ctx) => {
+    ctx.rect(x, y, 4, 4);
+    ctx.stroke();
+}
 
-    var viewer, counter;
-
-    function getList(names, keys) {
-        return names.map(function(name, i) {
-            return {
-                shortcut: keys[i] || null,
-                value: name
+class Sprite {
+    constructor(src) {
+        this.url = src;
+        this.image = new Image();
+        this.x = 0;
+        this.y = 0;
+        this._centX = 0;
+        this._centY = 0;
+        this._loaded = new Promise((resolve, reject) => {
+            this.image.onload = () => {
+                this.origW = this.image.width;
+                this.origH = this.image.height;
+                this.w = this.image.width;
+                this.h = this.image.height;
+                this.centX = 0;
+                this.centY = 0;
+                resolve(this.image);
             }
+            this.image.onerror = (err) => reject(err);
         })
-    }
-
-    function initToppings(toppings, keysToppings) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .full"),
-            list: getList(toppings, keysToppings),
-            multiSelect: false,
-            selectedClass: "topping-selected",
-            name: "toppings"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initSpread(spread, keysSpread) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .full-spread"),
-            list: getList(spread, keysSpread),
-            multiSelect: false,
-            selectedClass: "spread-selected",
-            name: "spread"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initDough(doughTypes, doughTypesKeys) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .left"),
-            list: getList(doughTypes, doughTypesKeys),
-            multiSelect: false,
-            selectedClass: "dough-selected",
-            name: "dough"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initQuantity(quantityTypes, quantityTypesKeys) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .right"),
-            list: getList(quantityTypes, quantityTypesKeys),
-            multiSelect: false,
-            selectedClass: "q-selected",
-            name: "quantity"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initSauces(sauceTypes, sauceTypesKeys) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .full"),
-            list: getList(sauceTypes, sauceTypesKeys),
-            multiSelect: false,
-            selectedClass: "sauces-selected",
-            name: "sauces"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initCrust(crustTypes, crustTypesKeys) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .right-last"),
-            list: getList(crustTypes, crustTypesKeys),
-            multiSelect: false,
-            selectedClass: "crust-selected",
-            name: "crust"
-        })
-        blist.render()
-        return blist
-    }
-
-    class EventEmitter {
-        constructor() {
-            this.events = {};
-        }
-        subscribe(eventName, fn) {
-            if(!this.events[eventName]) {
-                this.events[eventName] = [];
-            }
-
-            this.events[eventName].push(fn);
-
-            return () => {
-                this.events[eventName] = this.events[eventName].filter(eventFn => fn !== eventFn);
-            }
-        }
-
-        emit(eventName, data) {
-            const event = this.events[eventName];
-            if(event) {
-                event.forEach(fn => {
-                    fn.call(null, data);
-                });
-            }
-        }
-    }
-    
-    function Controls(buttons, hostSelector) {
-        this.buttons = buttons;
-        this.host = $(hostSelector)
-        this.currentState = buttons[0].state
-        this.emitter = new EventEmitter();
-        this.states = buttons.reduce((acc,el) => {
-            if (el.state) acc[el.state] = el
-            return acc
-        }, {})
-    }
-
-    Controls.prototype.render = function() {
-        this.host.html(this.buttons.reduce(function(acc, button) {
-            return acc += `<li>
-                        <button id="${button.id}" title="${button.id}" data-status="${button.state || ''}">
-                            <img src="${button.icon}" alt="${button.id}">
-                        </button>
-                    </li>`
-        }, "<ul class='canvas-controller'>") + "</ul>")
-        $(this.host.children()[0]).children().each((i, el) => {
-            let elm = $(el).children().get(0)
-            let state = $(elm).data("status")
-            if (state) this.states[state].element = elm
-        })
-        let state = this.states[this.currentState]
-        $(state.element).addClass('actived')
-    }
-
-    Controls.prototype.applyEvents = function() {
-        this.host.on('click', 'button', e => {
-            this.emitter.emit(e.currentTarget.id, {
-                state: this.currentState
-            })
-        })
-    }
-
-    Controls.prototype.changeState = function(newState) {
-        let lastState = this.states[this.currentState]
-        this.currentState = newState;
-        let state = this.states[newState];
-        $(lastState.element).removeClass('actived')
-        $(state.element).addClass('actived')
-    }
-
-    function ButtonList(options) {
-        Object.assign(this, options)
-        this.data = this.multiSelect ? this.list.reduce(function(acc, el) {
-            acc[el.value] = false;
-            return acc
-        }, {}) : "";
-        this.colors = this.list.reduce(function(acc, el) {
-            acc[el.value] = [Math.round(Math.random() * 255), Math.round(Math.random() * 255),
-            Math.round(Math.random() * 255)]
-            return acc
-        }, {})
-        this.emitter = new EventEmitter();
         
     }
 
-    ButtonList.prototype.render = function() {
-        this.container = document.createElement("div");
-        this.container.classList.add("list-button-cnt");
-        this.container.innerHTML = "<h3 class='list-b-title'>"+ this.name.toUpperCase() +"</h3>"
-        this.element = document.createElement("ul");
-        var self = this;
-        this.element.innerHTML = this.list.reduce(function(acc, el, i) {
-            return acc +=
-            "<li id='"+el.value+"' class='list-element "+ (self.selectedClass || "") +"'>" +
-                "<p class='color-label' style='background-color: rgba("+self.colors[el.value].join(',')+",255);'></p>"+
-                "<p class='licontent'>" +
-                    "<span class='el-name'>"+el.value+"</span>" +
-                    "<span class='el-shortcut' title='Shortcut letter'>"
-                        +el.shortcut+
-                    "</span>" +
-                "</p>" +
-            "</li>"
-        }, "")
-        var nodes = this.element.querySelectorAll(".list-element")
-        var elements = [].slice.call(nodes, 0)
-        this.elementsMap = elements.reduce(function(acc,element) {
-            acc[element.id] = element
-            return acc
-        }, {});
-        this.element.classList.add("list-el", this.name)
-        this.container.appendChild(this.element)
-        this.hostElement.appendChild(this.container)
-        this.handleToggle()
+    static fromCanvas(canvas) {
+        const sprite = new Sprite();
+        sprite._loaded = Promise.resolve()
+        sprite.url = null;
+        sprite.image = canvas;
+        sprite.x = 0;
+        sprite.y = 0;
+        sprite._centX = 0;
+        sprite._centY = 0;
+        sprite.origW = sprite.image.width;
+        sprite.origH = sprite.image.height;
+        sprite.w = sprite.image.width;
+        sprite.h = sprite.image.height;
+        sprite.centX = 0;
+        sprite.centY = 0;
+        return sprite;
     }
 
-    ButtonList.prototype.handleToggle = function(id) {
+    get centX () {
+        return this._centX
+    }
+
+    set centX (x) {
+        this.x = x - Math.floor(this.w / 2)
+        this._centX = x
+    }
+
+    get centY () {
+        return this._centY
+    }
+
+    set centY (y) {
+        this.y = y - Math.floor(this.h / 2)
+        this._centY = y
+    }
+
+    load() {
+        this.image.src = this.url;
+        return this._loaded;
+    }
+
+    draw(ctx) {
+        if (!this.image) return;
+        ctx.drawImage(this.image, this.x, this.y, this.w, this.h);
+    }
+
+    scale(ratio) {
+        this.w = Math.floor(this.origW * ratio);
+        this.h = Math.floor(this.origH * ratio);
+        this.centX = this.centX;
+        this.centY = this.centY;
+    }
+}
+
+class Origin {
+    constructor() {
+        this.netcanvas = document.createElement("canvas");
+        this.nctx = this.netcanvas.getContext('2d');
+        this.polycanvas = document.createElement("canvas");
+        document.body.appendChild(this.polycanvas)
+        this.pctx = this.polycanvas.getContext('2d');
+        this.gridImage = new Image();
+        this.currentImageData = null;
+        this.clickX = [];
+        this.clickY = [];
+        this.clickDrag = [];
+    }
+
+    addClick(x, y, dragging) {
+        this.clickX.push(x);
+        this.clickY.push(y);
+        this.clickDrag.push(dragging);
+    }
+
+    drawContour(){
+        this.nctx.strokeStyle = "#ffffff";
+        this.nctx.lineJoin = "round";
+        this.nctx.lineWidth = 2;
+                  
+        for (var i=0; i < this.clickX.length; i++) {		
+            this.nctx.beginPath();
+            if (this.clickDrag[i] && i){
+                this.nctx.moveTo(this.clickX[i-1], this.clickY[i-1]);
+            } else {
+                this.nctx.moveTo(this.clickX[i]-1, this.clickY[i]);
+            }
+            this.nctx.lineTo(this.clickX[i], this.clickY[i]);
+            this.nctx.closePath();
+            this.nctx.stroke();
+        }
+    }
+
+    clearLines() {
+        this.clickX = [];
+        this.clickY = [];
+        this.clickDrag = [];
+    }
+
+    transformCoords(coords, scale, netCoords) {
+        return {
+            x: (coords.x - netCoords.x) / scale,
+            y: (coords.y - netCoords.y) / scale,
+        }
+    }
+
+    init() {
+        this.pctx.clearRect(0, 0, this.polycanvas.width, this.polycanvas.height);
+        this.polycanvas.width = this.gridImage.width;
+        this.polycanvas.height = this.gridImage.height;
+
+        this.nctx.clearRect(0, 0, this.netcanvas.width, this.netcanvas.height);
+        this.netcanvas.width = this.gridImage.width;
+        this.netcanvas.height = this.gridImage.height;
+        this.nctx.drawImage(this.gridImage, 0, 0);
+    }
+
+    load(src) {
+        if (typeof src === "string") {
+            return new Promise((resolve, reject) => {
+                this.gridImage.onload = () => {
+                    this.init()
+                    resolve()
+                }
+                this.gridImage.onerror = () => reject()
+                this.gridImage.src = src
+            })
+        } else {
+            this.gridImage = src
+            this.init();
+            return Promise.resolve()
+        }
+    }
+
+    putImageData(imgData) {
+        this.currentImageData = imgData;
+        this.pctx.putImageData(imgData, 0, 0)
+    }
+}
+
+class View {
+    constructor(viewSize, origin, cbs) {
+        this.scale = 1;
+        this.size = viewSize
+        this.origin = origin;
+        this.c = document.getElementById("myCanvas");
+        this.co = document.getElementById("outCanvas");
+        this.cc = document.getElementById("centCanvas");
+        this.c.width = this.co.width = this.cc.width = viewSize.width
+        this.c.height = this.co.height = this.cc.height = viewSize.height
+        this.ctx = this.c.getContext("2d");
+        this.ctxo = this.co.getContext("2d");
+        this.ctxc = this.cc.getContext("2d");
+        this.attachEvent()
+        this.sFront = null
+        this.sBack = null
+        this.sCent = null
+        this.clickX = [];
+        this.clickY = [];
+        this.clickDrag = [];
+        this.shiftFactor = 0.0;
+        this.shiftX = 0;
+        this.shiftY = 0;
+        this.dragZoom = false;
+        this.dragStart = null;
+        this.clickCallback = cbs.clickGreedCallback.bind(this)
+        this.mousedownCallback = cbs.mousedownCallback.bind(this)
+        this.mousemoveCallback = cbs.mousemoveCallback.bind(this)
+        this.mouseupCallback = cbs.mouseupCallback.bind(this)
+        this.wheelCallback = cbs.wheelCallback.bind(this)
+        this._netShown = true;
+    }
+
+    get netShown() {
+        return this._netShown;
+    }
+
+    set netShown(value) {
+        this._netShown = value;
+        if (!this._netShown) this.c.classList.add('transparent')
+        else this.c.classList.remove('transparent')
+    }
+
+    resize(viewSize) {
+        this.clear()
+        this.size = viewSize
+        this.c.width = this.co.width = this.cc.width = viewSize.width
+        this.c.height = this.co.height = this.cc.height = viewSize.height
+        const wratio = this.size.width / this.sBack.origW
+        const hratio = this.size.height /this.sBack.origH
+        const ratio = wratio > hratio ? hratio : wratio
+        this.setScale(ratio, true)
+    }
+
+    addClick(x, y, dragging) {
+        this.clickX.push(x);
+        this.clickY.push(y);
+        this.clickDrag.push(dragging);
+    }
+
+    drawContour(width){
+        this.ctx.strokeStyle = "#ffffff";
+        this.ctx.lineJoin = "round";
+        this.ctx.lineWidth = width;
+                  
+        for (var i=0; i < this.clickX.length; i++) {		
+            this.ctx.beginPath();
+            if (this.clickDrag[i] && i){
+                this.ctx.moveTo(this.clickX[i-1], this.clickY[i-1]);
+            } else {
+                this.ctx.moveTo(this.clickX[i]-1, this.clickY[i]);
+            }
+            this.ctx.lineTo(this.clickX[i], this.clickY[i]);
+            this.ctx.closePath();
+            this.ctx.stroke();
+        }
+    }
+
+    clearLines() {
+        this.clickX = [];
+        this.clickY = [];
+        this.clickDrag = [];
+    }
+
+    attachEvent() {
+        this.c.onclick = e => {
+            return this.clickCallback(e)
+        }
+        this.c.addEventListener('mousedown', (e) => {
+            return this.mousedownCallback(e)
+        })
+        this.c.addEventListener('mousemove', (e) => {
+            return this.mousemoveCallback(e)
+        })
+        this.c.addEventListener('mouseup', (e) => {
+            return this.mouseupCallback(e)
+        })
+        this.c.addEventListener('wheel', (e) => {
+            event.preventDefault()
+            return this.wheelCallback(e)
+        })
+    }
+
+    clear() {
+        this.ctx.clearRect(0, 0, this.c.width, this.c.height);
+        this.ctxo.clearRect(0, 0, this.co.width, this.co.height);
+        this.ctxc.clearRect(0, 0, this.cc.width, this.cc.height);
+    }
+
+    loadSprites(frontUrl, backUrl) {
+        this.clear()
+        this.sFront = new Sprite(frontUrl); 
+        this.sBack = new Sprite(backUrl);
+        return Promise.all([this.sFront.load(),  this.sBack.load()])
+    }
+
+    setScale(scale, isCenter, shiftX, shiftY) {
+        this.clear()
+        if (shiftX) {
+            this.shiftX += shiftX
+        }
+        if (shiftY) {
+            this.shiftY += shiftY
+        }
+        if (isCenter) {
+            this.sBack.centX = this.co.width * 0.5 + (this.co.width * this.shiftX);
+            this.sBack.centY = this.co.height * 0.5 + (this.co.height * this.shiftY);
+
+            this.sFront.centX = this.c.width * 0.5 + (this.c.width * this.shiftX);
+            this.sFront.centY = this.c.height * 0.5 + (this.co.height * this.shiftY);
+            if (this.sCent) {
+                this.sCent.centX = this.cc.width * 0.5 + (this.cc.width * this.shiftX);
+                this.sCent.centY = this.cc.height * 0.5 + (this.co.height * this.shiftY);
+            }
+        }
+
+        this.sBack.scale(scale)
+        this.sFront.scale(scale)
+        if (this.sCent) this.sCent.scale(scale)
+
+        this.draw()
+
+        this.scale = scale
+    }
+
+    draw() {
+        this.sBack.draw(this.ctxo)
+        this.sFront.draw(this.ctx)
+        if (this.sCent) this.sCent.draw(this.ctxc);
+    }
+}
+
+class UndoQueue {
+
+    constructor(length) {
+        this.length = length;
+        this._queue = [];
+        this.cursor = null;
+    }
+
+    addToQueue(action) {
+        if (this.cursor === null || (this._queue.length !== this.length && this.cursor === this._queue.length - 1)) {
+            this._queue.push(action)
+            this.cursor = this._queue.length - 1;
+        } else if (this.cursor && this.cursor === this._queue.length - 1) {
+            this._queue.shift()
+            this._queue.push(action)
+        } else {
+            this.cursor++;
+            this._queue[this.cursor] = action
+        }
+    }
+
+    getPrivious() {
+        if (this.cursor) {
+            this.cursor--
+            return this._queue[this.cursor]
+        }
+        return null
+    }
+
+    getNext() {
+        if (this._queue.length && this.cursor !== this._queue.length - 1) {
+            this.cursor++
+            return this._queue[this.cursor]
+        }
+        return null
+    }
+}
+
+class Annotator {
+    constructor(width, height) {
+        this.hover = false;
+        this.undoq = null;
+        this.cvReady = false;
+        this.resolver = null;
+        this.listenWorker();
+        this.workerReady = new Promise((resolve, reject) => {
+            this.resolver = resolve
+        })
         var self = this;
+        this.currentColor = null;
+        this.state = 'fill';
+        this.origin = new Origin();
+        this.view = new View({width: width, height: height}, this.origin, 
+        {
+            clickGreedCallback, 
+            mousedownCallback, 
+            mousemoveCallback,
+            mouseupCallback,
+            wheelCallback
+        })
+        this.paint = false;
+        
+        function clickGreedCallback (e) {
+            if (this.dragZoom || this.dragStart) return;
+            // 'this' will be Annotator view
+            var coorX = e.pageX - e.target.offsetLeft;
+            var coorY = e.pageY - e.target.offsetTop;
+            let coords = this.origin.transformCoords({x: coorX, y: coorY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
+            // drawRect(coorX, coorY, this.ctx);
+            // drawRect(coords.x, coords.y, this.origin.nctx);
+            if (self.canFill()) {
+                wasmWorker.postMessage({cmd: 'click', color: self.currentColor, coor: this.origin.transformCoords({x: coorX, y: coorY}, this.scale, {x: this.sFront.x, y: this.sFront.y})});
+            }
+        }
 
-        controls.on("click", "."+this.name, function(event) {
-
-            var el = $(event.target).closest(".list-element")
-            if (!el.length) {
+        function mousedownCallback (e) {
+            if (this.dragZoom) {
+                this.dragStart = {x: e.pageX - e.target.offsetLeft, y: e.pageY - e.target.offsetTop}
                 return
             }
+            if (!self.canDraw()) return;
+            var mouseX = e.pageX - e.target.offsetLeft;
+            var mouseY = e.pageY - e.target.offsetTop;
+            let coords = this.origin.transformCoords({x: mouseX, y: mouseY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
+                  
+            self.paint = true;
+            this.addClick(mouseX, mouseY);
+            this.drawContour(Math.round(2*this.scale));
+            this.origin.addClick(coords.x, coords.y);
+            this.origin.drawContour();
+        }
 
-            if (self.multiSelect) {
-                el.toggleClass("selected")
-                self.data[el.get(0).id] = !self.data[el.get(0).id]
-                self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: self.data[el.get(0).id] })
-            } else {
-                $("."+self.name + " .list-element").removeClass("selected")
-                self.data = self.data === el.get(0).id ? "" : el.get(0).id
-                self.data ? el.addClass("selected") : el.removeClass("selected")
-                self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: !!self.data })
-            }
-
-        })
-        this.list.forEach(function(el) {
-            shortcut.add(el.shortcut, function() {
-                var elm = self.elementsMap[el.value]
-                if (self.multiSelect) {
-                    $(elm).toggleClass("selected")
-                    self.data[el.value] = !self.data[el.value]
-                    self.emitter.emit("input:list", { key: el.value, color: self.colors[el.value], value: self.data[el.value] })
+        function mousemoveCallback (e) {
+            if (this.dragZoom && this.dragStart) {
+                var mouseX = e.pageX - e.target.offsetLeft;
+                var mouseY = e.pageY - e.target.offsetTop;
+                const isLeft = mouseX < this.dragStart.x;
+                const isTop = mouseY < this.dragStart.y;
+                const dragStartPointX =  this.dragStart.x;
+                const dragStartPointY = this.dragStart.y;
+                const maxShiftStep = 0.5;
+                const outSetX = Math.abs(dragStartPointX - mouseX);
+                const outSetY = Math.abs(dragStartPointY - mouseY);
+                const shiftX = outSetX * maxShiftStep / dragStartPointX;
+                const shiftY = outSetY * maxShiftStep / dragStartPointY;
+                if (!isTop && isLeft) {
+                    this.setScale(this.scale, true,
+                        -shiftX, shiftY)
+                } else if (isTop && isLeft) {
+                    this.setScale(this.scale, true,
+                        -shiftX, -shiftY)
+                } else if (isTop && !isLeft) {
+                    this.setScale(this.scale, true,
+                        shiftX, -shiftY)
                 } else {
-                    $("."+self.name + " .list-element").removeClass("selected")
-                    self.data = self.data === el.value ? "" : el.value
-                    self.data ? $(elm).addClass("selected") : $(elm).removeClass("selected")
-                    self.emitter.emit("input:list", { key: el.value, color: self.colors[el.value], value: !!self.data })
+                    this.setScale(this.scale, true,
+                        shiftX, shiftY)
                 }
-            });
-        })
-    }
-
-    ButtonList.prototype.getData = function() {
-        if (this.multiSelect) {
-            return (Object.keys(this.data))
-                .filter(function(key){
-                    return this.data[key]
-                }, this)
-        } else {
-            return this.data
-        }
-    }
-
-    ButtonList.prototype.reset = function() {
-        if (this.multiSelect) {
-            (Object.keys(this.data))
-                .forEach(function(key){
-                    this.data[key] = false;
-                }, this)
-        } else {
-            this.data = ""
-        }
-        $("."+this.name + " .list-element").removeClass("selected")
-    }
-
-    function Counter(options) {
-        Object.assign(this, options)
-        this._count = this.startValue;
-        this.value = {}
-        var self = this;
-        Object.defineProperty(this.value, "count", {
-            get: function() {
-                return self._count
-            },
-            set: function(newVal) {
-                self._count = newVal
-                self.valueEl.textContent = self.value.count
+                this.dragStart = {x: e.pageX - e.target.offsetLeft, y: e.pageY - e.target.offsetTop}
+                return
             }
-        })
-    }
+            if (!self.canDraw()) return;
+            var mouseX = e.pageX - e.target.offsetLeft;
+            var mouseY = e.pageY - e.target.offsetTop;
+            let coords = this.origin.transformCoords({x: mouseX, y: mouseY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
+                  
+            if (self.paint) {
+                this.addClick(mouseX, mouseY, true);
+                this.drawContour(Math.round(2*this.scale));
+                this.origin.addClick(coords.x, coords.y, true);
+                this.origin.drawContour();
+            }
+        }
 
-    Counter.prototype.render = function() {
-        $(this.hostElement).html("<p>"+
-            "<span class='c-title'>"+this.title+"</span>"+
-            "<span class='c-value'>"+this.value.count+"</span>"+
-        "</p>")
-        this.valueEl = this.hostElement.querySelector('.c-value')
-    }
+        function mouseupCallback (e) {
+            if (this.dragStart) {
+                this.dragStart = null
+                return
+            }
+            if (!self.canDraw()) return;
+            self.paint = false;
+            this.clearLines()
+            this.origin.clearLines()
+            self.undoq.addToQueue({type: 'draw', 
+                contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
+                segments: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height),
+            })
+        }
 
-    function initCounter() {
-        var c = document.querySelector(".counter")        
-        var contV = c.querySelector(".c-value")
-        var counter = new Counter({
-            startValue: isNaN(+contV.textContent) ? 0 : +contV.textContent,
-            hostElement: c,
-            title: "COUNTER:"
-        })
-        counter.render()
-        return counter
-    }
-    function initControls(buttons) {
-        var controls = new Controls(buttons, '.full-canvas')
-        controls.render()
-        controls.applyEvents()
-        return controls
-    }
-
-    function initTool() {
-        return {
-            "controls": initControls(buttons),
-            "annotation": initToppings(toppings, keysToppings),
-            "sauce": initSauces(sauceTypes, sauceTypesKeys),
+        function wheelCallback (e) {
+            var mouseX = e.pageX - e.target.offsetLeft;
+            var mouseY = e.pageY - e.target.offsetTop;
+            const isLeft = mouseX < this.cc.width * 0.5;
+            const isTop = mouseY < this.cc.height * 0.5;
+            const canvasCenterX = this.cc.width * 0.5;
+            const canvasCenterY = this.cc.height * 0.5;
+            const maxShiftStep = 0.05;
+            const outSetX = Math.abs(canvasCenterX - mouseX);
+            const outSetY = Math.abs(canvasCenterY - mouseY);
+            const shiftX = outSetX * maxShiftStep / canvasCenterX;
+            const shiftY = outSetY * maxShiftStep / canvasCenterY;
+            if (e.deltaY < 0) {
+                if (Annotator.isPointInCircle(mouseX, mouseY, canvasCenterX, canvasCenterY, Math.floor(this.size.width / 8))) {
+                    this.setScale(this.scale + 0.1, false)
+                } else if (!isTop && isLeft) {
+                    this.setScale(this.scale + 0.1, true,
+                        shiftX, -shiftY)
+                } else if (isTop && isLeft) {
+                    this.setScale(this.scale + 0.1, true,
+                        shiftX, shiftY)
+                } else if (isTop && !isLeft) {
+                    this.setScale(this.scale + 0.1, true,
+                        -shiftX, shiftY)
+                } else {
+                    this.setScale(this.scale + 0.1, true,
+                        -shiftX, -shiftY)
+                }
+            } else {
+                if (Annotator.isPointInCircle(mouseX, mouseY, canvasCenterX, canvasCenterY, Math.floor(this.size.width / 8))) {
+                    this.setScale(this.scale - 0.1, false)
+                } else if (!isTop && isLeft) {
+                    this.setScale(this.scale - 0.1, true,
+                        -shiftX, shiftY)
+                } else if (isTop && isLeft) {
+                    this.setScale(this.scale - 0.1, true,
+                        -shiftX, -shiftY)
+                } else if (isTop && !isLeft) {
+                    this.setScale(this.scale - 0.1, true,
+                        shiftX, -shiftY)
+                } else {
+                    this.setScale(this.scale - 0.1, true,
+                        shiftX, shiftY)
+                }
+            }
         }
     }
 
-    function getData() {
-        if (!tool) return null;
-        return {
-            annotation: tool.annotation.getData(),
-            sauce: tool.sauce.getData(),
+    static isPointInCircle(x, y, cx, cy, radius) {
+        return Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) <= radius
+    }
+
+    canFill() {
+        return this.state === 'fill' && this.currentColor
+    }
+
+    canDraw() {
+        return this.state === 'contour'
+    }
+
+    undoSegments(segments) {
+        this.origin.putImageData(segments);
+        this.view.ctxc.clearRect(0, 0, this.view.cc.width, this.view.cc.height)
+        this.view.sCent.draw(this.view.ctxc)
+        this.putPolygonsToWorker()
+    }
+
+    undoContours(contours) {
+        this.origin.nctx.clearRect(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height)
+        this.origin.nctx.putImageData(contours, 0,0)
+        this.view.ctx.clearRect(0, 0, this.view.c.width, this.view.c.height)
+        this.view.sFront.draw(this.view.ctx)
+        if (this.state === 'fill') {
+            this.imageDataToWorker(false)
         }
     }
 
-    function reset() {
-        if (!tool) return null;
-        tool.annotation.reset()
-        tool.sauce.reset()
+    undo() {
+        const action = this.undoq.getPrivious()
+        if (action) {
+            switch (action.type) {
+                case 'fill':
+                    this.undoSegments(action.segments)
+                    this.undoContours(action.contours)
+                    break;
+                case 'draw':
+                    this.undoContours(action.contours)
+                    this.undoSegments(action.segments)
+                    break;
+                case 'initial':
+                    this.undoContours(action.contours)
+                    this.origin.pctx.clearRect(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height)
+                    this.view.ctxc.clearRect(0, 0, this.view.cc.width, this.view.cc.height)
+                    this.view.sCent.draw(this.view.ctxc)
+                    this.putPolygonsToWorker()
+                    break;
+            }
+        }
     }
 
-    window.tool = initTool()
-    window.tool.annotation.emitter.subscribe("input:list", e => {
-        const sel = window.tool.sauce.element.querySelector(".list-element.selected")
-        sel && sel.classList.remove("selected")
-        window.tool.sauce.data = ""
+    loadNewImage(imageSrc, gridSrc) {
+        return this.view.loadSprites(gridSrc, imageSrc)
+            .then((data) => {
+                this.undoq = new UndoQueue(5);
+                return this.origin.load(data[0])
+            })
+            .then(() => {
+                const wratio = this.view.size.width / this.view.sBack.origW
+                const hratio = this.view.size.height /this.view.sBack.origH
+                const ratio = wratio > hratio ? hratio : wratio
+                this.view.sFront.image = this.origin.netcanvas;
+                this.view.shiftFactor = 0.0;
+                this.view.sCent = Sprite.fromCanvas(this.origin.polycanvas);
+                this.view.setScale(ratio, true)
+                return this.cvReady ? Promise.resolve() : this.workerReady
+            })
+            .then(() => {
+                this.undoq.addToQueue({type: 'initial', 
+                    contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
+                })
+                this.imageDataToWorker(true)
+            })
+    }
+
+    imageDataToWorker(initial) {
+        let message = { cmd: 'imageNew', img: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height), initial: !!initial};
+        wasmWorker.postMessage(message)
+    }
+
+    putPolygonsToWorker() {
+        let message = { cmd: 'put', img: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height)};
+        wasmWorker.postMessage(message)
+    }
+
+    listenWorker() {
+        wasmWorker.onmessage = (e) => {
+            let perfwasm1 = performance.now();
+            if (e.data.msg === "ready") {
+                console.log("READY")
+                this.cvReady = true;
+                this.resolver()
+            }
+            if (e.data.msg instanceof ImageData) {
+                this.origin.putImageData(e.data.msg)
+                this.view.sCent.draw(this.view.ctxc)
+                this.undoq.addToQueue({type: 'fill', segments: e.data.msg, contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height)})
+            }
+        }
+    }
+
+}
+
+$(function () {
+    const annotator = new Annotator(window.innerWidth-510, window.innerHeight);
+    annotator.loadNewImage("./images/pep.jpg", "./images/pep_annotated_boundry.png")
+    window.addEventListener("resize", e => {
+        annotator.view.resize({width:window.innerWidth-510, height: window.innerHeight})
+    });
+
+    window.addEventListener('keydown', e => {
+        if (e.which === 16)  { // SHIFT
+            annotator.view.dragZoom = true
+        }
     })
-    window.tool.sauce.emitter.subscribe("input:list", e => {
-        const sel = window.tool.annotation.element.querySelector(".list-element.selected")
-        sel && sel.classList.remove("selected")
-        window.tool.annotation.data = ""
+
+    window.addEventListener('keyup', e => {
+        if (e.which === 16)  { // SHIFT
+            annotator.view.dragZoom = false
+            annotator.view.dragStart = false;
+        }
+    })
+
+    window.tool.annotation.emitter.subscribe("input:list", data => {
+        if (data.value) {
+            annotator.currentColor = data.color
+        } else {
+            annotator.currentColor = null
+        }
+    })
+    window.tool.sauce.emitter.subscribe("input:list", data => {
+        if (data.value) {
+            annotator.currentColor = data.color
+        } else {
+            annotator.currentColor = null
+        }
+    })
+    window.tool.controls.emitter.subscribe('Custom Contour', data => {
+        if (data.state !== 'contour') {
+            window.tool.controls.changeState('contour')
+            annotator.state = 'contour'
+        }
+    })
+    window.tool.controls.emitter.subscribe('Zone Marker', data => {
+        if (data.state !== 'fill') {
+            annotator.imageDataToWorker(false)
+            window.tool.controls.changeState('fill')
+            annotator.state = 'fill'
+        }
+    })
+    window.tool.controls.emitter.subscribe('Undo', data => {
+        annotator.undo()
+    })
+    window.tool.controls.emitter.subscribe('New file', data => {
+        console.log(data.event.currentTarget.files)
+    })
+    window.tool.controls.emitter.subscribe('Show/Hide Net', data => {
+        annotator.view.netShown = !annotator.view.netShown
+        if (annotator.view.netShown) data.event.currentTarget.classList.add('actived')
+        else data.event.currentTarget.classList.remove('actived')
     })
 });

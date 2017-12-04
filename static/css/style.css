@@ -68,6 +68,10 @@ li {
     width: 50%;
 }
 
+.hidden {
+    display: none !important;
+}
+
 .controls .counter {
     width: 100%;
     text-align: center;
@@ -80,7 +84,7 @@ li {
     align-items: center;
 }
 
-.controls button {
+.controls button, .controls label {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -97,7 +101,7 @@ li {
     background-color: rgb(16, 194, 43);
 }
 
-.controls button img {
+.controls button img, .controls label img {
     width: 55px;
 }
 
@@ -113,7 +117,7 @@ li {
     outline: none;
 }
 
-.controls button:hover {
+.controls button:hover, .controls label:hover {
     background-color: rgb(16, 194, 43);
 }
 
@@ -168,6 +172,10 @@ ul.list-el li {
     font-size: 20px;
     cursor: pointer;
     user-select: none;
+}
+
+.transparent {
+    opacity: 0;
 }
 
 ul.list-el li:hover .el-name {
