@@ -198,6 +198,9 @@ class View {
         this.shiftY = 0;
         this.dragZoom = false;
         this.dragStart = null;
+        this.mergeState = false;
+        this.mergePoint1 = null;
+        this.mergePoint2 = null;
         this.clickCallback = cbs.clickGreedCallback.bind(this)
         this.mousedownCallback = cbs.mousedownCallback.bind(this)
         this.mousemoveCallback = cbs.mousemoveCallback.bind(this)
@@ -388,6 +391,7 @@ class Annotator {
         this.paint = false;
         
         function clickGreedCallback (e) {
+            
             if (this.dragZoom || this.dragStart) return;
             // 'this' will be Annotator view
             var coorX = e.pageX - e.target.offsetLeft;
@@ -395,6 +399,22 @@ class Annotator {
             let coords = this.origin.transformCoords({x: coorX, y: coorY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
             // drawRect(coorX, coorY, this.ctx);
             // drawRect(coords.x, coords.y, this.origin.nctx);
+            if (this.mergeState) {
+                if (!this.mergePoint1) {
+                    console.log('mergePoint1', coords)
+                    this.mergePoint1 = coords
+                    return
+                }
+                if (!this.mergePoint2) {
+                    console.log('mergePoint2', coords)
+                    this.mergePoint2 = coords
+                    let message = { cmd: 'merge', point1: this.mergePoint1, point2: this.mergePoint2};
+                    wasmWorker.postMessage(message)
+                    this.mergePoint1 = null
+                    this.mergePoint2 = null
+                    return
+                }
+            }
             if (self.canFill()) {
                 wasmWorker.postMessage({cmd: 'click', color: self.currentColor, coor: this.origin.transformCoords({x: coorX, y: coorY}, this.scale, {x: this.sFront.x, y: this.sFront.y})});
             }
@@ -616,10 +636,20 @@ class Annotator {
                 this.cvReady = true;
                 this.resolver()
             }
-            if (e.data.msg instanceof ImageData) {
+            if (e.data.event === "newSegments") {
                 this.origin.putImageData(e.data.msg)
                 this.view.sCent.draw(this.view.ctxc)
                 this.undoq.addToQueue({type: 'fill', segments: e.data.msg, contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height)})
+            }
+            if (e.data.event === "newCnts") {
+                this.origin.nctx.clearRect(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height)
+                this.view.ctx.clearRect(0, 0, this.view.c.width, this.view.c.height)
+                this.origin.nctx.putImageData(e.data.msg, 0, 0)
+                this.view.sFront.draw(this.view.ctx)
+                this.undoq.addToQueue({type: 'draw', 
+                    contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
+                    segments: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height),
+                })
             }
         }
     }
@@ -636,6 +666,8 @@ $(function () {
     window.addEventListener('keydown', e => {
         if (e.which === 16)  { // SHIFT
             annotator.view.dragZoom = true
+        } else if (e.which === 17) {
+            annotator.view.mergeState = true
         }
     })
 
@@ -643,6 +675,8 @@ $(function () {
         if (e.which === 16)  { // SHIFT
             annotator.view.dragZoom = false
             annotator.view.dragStart = false;
+        } else if (e.which === 17) {
+            annotator.view.mergeState = false
         }
     })
 
