@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 	"github.com/labstack/echo"
-	"github.com/DragonTailSystems/Slic_Annotation_tool/tools"
+	"github.com/DragonTailSystems/AnnotationTool.v.2/tools"
 )
 
 func Upload(c echo.Context) error {

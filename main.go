@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
-	"github.com/DragonTailSystems/Slic_Annotation_tool/handlers"
+	"github.com/DragonTailSystems/AnnotationTool.v.2/handlers"
 )
 
 func main() {
