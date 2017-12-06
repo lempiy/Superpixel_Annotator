@@ -638,6 +638,7 @@ class Annotator {
             }
             if (e.data.event === "newSegments") {
                 this.origin.putImageData(e.data.msg)
+                this.view.ctxc.clearRect(0, 0, this.view.cc.width, this.view.cc.height)
                 this.view.sCent.draw(this.view.ctxc)
                 this.undoq.addToQueue({type: 'fill', segments: e.data.msg, contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height)})
             }

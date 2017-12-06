@@ -33,12 +33,12 @@ function putSegments(imageData) {
 
 function drawSegment(point, clr) {
     let color = new cv.Scalar(clr[0], clr[1],
-        clr[2], 255);
+        clr[2], 150);
 
     for (let i = 0; i < contours.size(); ++i) {
         let pip = cv.pointPolygonTest(contours.get(i), point, false)
         if (pip === 1 && i !== gis) {
-            cv.drawContours(segments, contours, i, color, 1, cv.LineTypes.LINE_8.value,  hierarchy, 100, [0,0]);
+            cv.drawContours(segments, contours, i, color, -1, cv.LineTypes.LINE_8.value,  hierarchy, 100, [0,0]);
         }
     }
     segments = segments;
@@ -48,7 +48,7 @@ function drawSegment(point, clr) {
 
 function mergeSegments(point1, point2) {
     console.log('Begin merge', performance.now())
-    let color = new cv.Scalar(0, 255,
+    let color = new cv.Scalar(255, 255,
         255, 255);
     let trnsp = new cv.Scalar(0, 0,
         0, 0);
@@ -71,6 +71,7 @@ function mergeSegments(point1, point2) {
         }
     }
     tmp = segments.clone();
+    out = segments.clone();
     mask = cv.Mat.zeros(0, 0, cv.CV_8U);
 
     cnts = new cv.MatVector();
@@ -78,7 +79,7 @@ function mergeSegments(point1, point2) {
 
     let zero = new cv.Scalar(0, 0, 0, 0)
     tmp.setTo(zero, mask)
-    segments.setTo(zero, mask)
+    out.setTo(zero, mask)
     cv.drawContours(tmp, contours, ci1, color, cv.LineTypes.FILLED.value, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
     cv.drawContours(tmp, contours, ci2, color, cv.LineTypes.FILLED.value, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
 
@@ -91,16 +92,16 @@ function mergeSegments(point1, point2) {
     for (let i = 0; i < contours.size(); ++i) {
         if (ci1 === i || ci2 === i || i === gis) continue;
         if (cv.contourArea(contours.get(i), false) > 1000) {
-            cv.drawContours(segments, contours, i, color, 1, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
+            cv.drawContours(out, contours, i, color, 1, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
             //cv.drawContours(tmp, contours, i, color, 2, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
         }
     }
     // draw merged contour
-    cv.drawContours(segments, cnts, cnts.size()-1, trnsp, -1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
-    cv.drawContours(segments, cnts, cnts.size()-1, color, 1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
+    cv.drawContours(out, cnts, cnts.size()-1, trnsp, -1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
+    cv.drawContours(out, cnts, cnts.size()-1, color, 1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
     // cv.drawContours(tmp, cnts, cnts.size()-1, trnsp, -1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
     // cv.drawContours(tmp, cnts, cnts.size()-1, color, 1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
-    var imd = new ImageData(new Uint8ClampedArray(segments.data()), w, h)
+    var imd = new ImageData(new Uint8ClampedArray(out.data()), w, h)
     postMessage({event:'newCnts', msg: imd, poly: true});
     
     tmp.delete(); mask.delete(); cnts.delete(); hrar.delete();
