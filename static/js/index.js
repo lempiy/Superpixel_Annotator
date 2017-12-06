@@ -88,8 +88,10 @@ class Origin {
         this.nctx = this.netcanvas.getContext('2d');
         // document.body.appendChild(this.netcanvas)
         this.polycanvas = document.createElement("canvas");
+        this.savingcanvas = document.createElement("canvas");
         // document.body.appendChild(this.polycanvas)
         this.pctx = this.polycanvas.getContext('2d');
+        this.sctx = this.savingcanvas.getContext('2d');
         this.gridImage = new Image();
         this.currentImageData = null;
         this.clickX = [];
@@ -167,6 +169,15 @@ class Origin {
     putImageData(imgData) {
         this.currentImageData = imgData;
         this.pctx.putImageData(imgData, 0, 0)
+    }
+
+    drawSaving() {
+        this.sctx.clearRect(0, 0, this.savingcanvas.width, this.savingcanvas.height);
+        this.savingcanvas.width = this.polycanvas.width
+        this.savingcanvas.height = this.polycanvas.height
+        this.sctx.fillStyle = "#010202";
+        this.sctx.fillRect(0, 0, this.savingcanvas.width, this.savingcanvas.height);
+        this.sctx.drawImage(this.polycanvas, 0, 0)
     }
 }
 
@@ -771,7 +782,8 @@ $(function () {
     })
     window.tool.controls.emitter.subscribe('Save', data => {
         if (!annotator.inputAllowed) return;
-        annotator.origin.polycanvas.toBlob((blob)=> {
+        annotator.origin.drawSaving()
+        annotator.origin.savingcanvas.toBlob((blob)=> {
             const fd = new FormData();
             fd.append('image', blob, annotator.currentName+'_colored.png');
             annotator.save(fd)

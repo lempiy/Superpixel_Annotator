@@ -214,6 +214,14 @@ $(function () {
             "0",
             "255"
         ]
+    },
+    {
+        "name": "Unknown",
+        "color": [
+            "255",
+            "255",
+            "255"
+        ]
     }];
     var sauceTypesKeys = ['Shift+Z', 'Shift+X', 'Shift+C', 'Shift+V'];
     var crustTypes = ['Under cooked', 'Good', 'Over cooked'];
