@@ -33,7 +33,7 @@ function putSegments(imageData) {
 
 function drawSegment(point, clr) {
     let color = new cv.Scalar(clr[0], clr[1],
-        clr[2], 150);
+        clr[2], 255);
 
     for (let i = 0; i < contours.size(); ++i) {
         let pip = cv.pointPolygonTest(contours.get(i), point, false)
@@ -49,7 +49,7 @@ function drawSegment(point, clr) {
 function mergeSegments(point1, point2) {
     console.log('Begin merge', performance.now())
     let color = new cv.Scalar(255, 255,
-        255, 255);
+        0, 255);
     let trnsp = new cv.Scalar(0, 0,
         0, 0);
     let contour1 = null;
@@ -83,6 +83,7 @@ function mergeSegments(point1, point2) {
     cv.drawContours(tmp, contours, ci1, color, cv.LineTypes.FILLED.value, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
     cv.drawContours(tmp, contours, ci2, color, cv.LineTypes.FILLED.value, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
 
+    console.log("AREA", cv.contourArea(contours.get(ci1), false), cv.contourArea(contours.get(ci2), false))
     cv.cvtColor(tmp, tmp, cv.ColorConversionCodes.COLOR_RGBA2GRAY.value, 0);
     cv.threshold(tmp, tmp, tresh, max_tresh, cv.ThresholdTypes.THRESH_BINARY.value);
 
@@ -91,14 +92,15 @@ function mergeSegments(point1, point2) {
     // draw prev contours
     for (let i = 0; i < contours.size(); ++i) {
         if (ci1 === i || ci2 === i || i === gis) continue;
-        if (cv.contourArea(contours.get(i), false) > 1000) {
-            cv.drawContours(out, contours, i, color, 1, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
+        if (cv.contourArea(contours.get(i), false) > 100) {
+            cv.drawContours(out, contours, i, color, 1, 0, hierarchy, 0, [0,0]);
             //cv.drawContours(tmp, contours, i, color, 2, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
         }
     }
+    console.log( cv.LineTypes.LINE_8.value)
     // draw merged contour
-    cv.drawContours(out, cnts, cnts.size()-1, trnsp, -1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
-    cv.drawContours(out, cnts, cnts.size()-1, color, 1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
+    cv.drawContours(out, cnts, cnts.size()-1, trnsp, -1, 0, hrar, 0, [0,0]);
+    cv.drawContours(out, cnts, cnts.size()-1, color, 1, 0, hrar, 0, [0,0]);
     // cv.drawContours(tmp, cnts, cnts.size()-1, trnsp, -1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
     // cv.drawContours(tmp, cnts, cnts.size()-1, color, 1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
     var imd = new ImageData(new Uint8ClampedArray(out.data()), w, h)
@@ -112,11 +114,9 @@ function mergeSegments(point1, point2) {
 function getContours(imageData, initial) {
     if (initial) {
         // Clean up memory on new image
-        if (contours) contours.delete();
-        if (hierarchy) hierarchy.delete();
-        if (dst) dst.delete();
-        if (segments) segments.delete();
-        if (gis) gis.delete();
+        if (contours) contours.delete(); contours = null;
+        if (hierarchy) hierarchy.delete(); hierarchy = null;
+        if (segments) segments.delete(); segments = null;
     }
     let tresh = 1;
     let max_tresh = 1;

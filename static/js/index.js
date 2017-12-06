@@ -86,9 +86,9 @@ class Origin {
     constructor() {
         this.netcanvas = document.createElement("canvas");
         this.nctx = this.netcanvas.getContext('2d');
-        document.body.appendChild(this.netcanvas)
+        // document.body.appendChild(this.netcanvas)
         this.polycanvas = document.createElement("canvas");
-        document.body.appendChild(this.polycanvas)
+        // document.body.appendChild(this.polycanvas)
         this.pctx = this.polycanvas.getContext('2d');
         this.gridImage = new Image();
         this.currentImageData = null;
@@ -104,22 +104,19 @@ class Origin {
     }
 
     drawContour(){
-        this.nctx.strokeStyle = "#ffffff";
-        this.nctx.lineJoin = "bevel";
+        this.nctx.strokeStyle = "#ffff00";
+        this.nctx.lineJoin = "miter";
         this.nctx.lineWidth = 1;
         //this.nctx.translate(0.5, 0.5);
                   
         for (var i=0; i < this.clickX.length; i++) {		
             this.nctx.beginPath();
             if (this.clickDrag[i] && i){
-                this.nctx.moveTo(Math.floor(this.clickX[i-1]), Math.floor(this.clickY[i-1]));
-                console.log('FROM: ', Math.floor(this.clickX[i-1]), Math.floor(this.clickY[i-1]))
+                this.nctx.moveTo(Math.floor(this.clickX[i-1])-0.5, Math.floor(this.clickY[i-1])-0.5);
             } else {
-                this.nctx.moveTo(Math.floor(this.clickX[i]-1), Math.floor(this.clickY[i]));
-                console.log('FROM: ', Math.floor(this.clickX[i]-1), Math.floor(this.clickY[i]))
+                this.nctx.moveTo(Math.floor(this.clickX[i]-1)-0.5, Math.floor(this.clickY[i])-0.5);
             }
-            console.log('TO: ', Math.floor(this.clickX[i]), Math.floor(this.clickY[i]))
-            this.nctx.lineTo(Math.floor(this.clickX[i]), Math.floor(this.clickY[i]));
+            this.nctx.lineTo(Math.floor(this.clickX[i])-0.5, Math.floor(this.clickY[i])-0.5);
             this.nctx.closePath();
             this.nctx.stroke();
         }
@@ -237,18 +234,18 @@ class View {
     }
 
     drawContour(width){
-        this.ctx.strokeStyle = "#ffffff";
-        this.ctx.lineJoin = "bevel";
+        this.ctx.strokeStyle = "#ffff00";
+        this.ctx.lineJoin = "miter";
         this.ctx.lineWidth = width;
                   
         for (var i=0; i < this.clickX.length; i++) {		
             this.ctx.beginPath();
             if (this.clickDrag[i] && i){
-                this.ctx.moveTo(this.clickX[i-1], this.clickY[i-1] + 0.5);
+                this.ctx.moveTo(Math.floor(this.clickX[i-1])-0.5, Math.floor(this.clickY[i-1]) - 0.5);
             } else {
-                this.ctx.moveTo(this.clickX[i]-1, this.clickY[i] + 0.5);
+                this.ctx.moveTo(Math.floor(this.clickX[i]-1)-0.5, Math.floor(this.clickY[i]) - 0.5);
             }
-            this.ctx.lineTo(this.clickX[i], this.clickY[i]);
+            this.ctx.lineTo(Math.floor(this.clickX[i])-0.5, Math.floor(this.clickY[i])-0.5);
             this.ctx.closePath();
             this.ctx.stroke();
         }
@@ -368,10 +365,12 @@ class UndoQueue {
 
 class Annotator {
     constructor(width, height) {
+        this.inputAllowed = false;
         this.hover = false;
         this.undoq = null;
         this.cvReady = false;
         this.resolver = null;
+        this.currentName = "";
         this.listenWorker();
         this.workerReady = new Promise((resolve, reject) => {
             this.resolver = resolve
@@ -391,7 +390,7 @@ class Annotator {
         this.paint = false;
         
         function clickGreedCallback (e) {
-            
+            if (!self.inputAllowed) return;
             if (this.dragZoom || this.dragStart) return;
             // 'this' will be Annotator view
             var coorX = e.pageX - e.target.offsetLeft;
@@ -421,6 +420,7 @@ class Annotator {
         }
 
         function mousedownCallback (e) {
+            if (!self.inputAllowed) return;
             if (this.dragZoom) {
                 this.dragStart = {x: e.pageX - e.target.offsetLeft, y: e.pageY - e.target.offsetTop}
                 return
@@ -438,6 +438,7 @@ class Annotator {
         }
 
         function mousemoveCallback (e) {
+            if (!self.inputAllowed) return;
             if (this.dragZoom && this.dragStart) {
                 var mouseX = e.pageX - e.target.offsetLeft;
                 var mouseY = e.pageY - e.target.offsetTop;
@@ -480,6 +481,7 @@ class Annotator {
         }
 
         function mouseupCallback (e) {
+            if (!self.inputAllowed) return;
             if (this.dragStart) {
                 this.dragStart = null
                 return
@@ -495,6 +497,7 @@ class Annotator {
         }
 
         function wheelCallback (e) {
+            if (!self.inputAllowed) return;
             var mouseX = e.pageX - e.target.offsetLeft;
             var mouseY = e.pageY - e.target.offsetTop;
             const isLeft = mouseX < this.cc.width * 0.5;
@@ -654,17 +657,48 @@ class Annotator {
             }
         }
     }
-
+    upload(f) {
+        fetch("/upload", {
+            method: "POST",
+            body: f
+        })
+        .then(res => {
+            return res.json()
+        })
+        .then(res => {
+            if (res.success) {
+                this.currentName = res.name
+                this.loadNewImage(res.image+"?time="+Date.now(), res.image_net+"?time="+Date.now())
+                this.inputAllowed = true;
+            }
+        })
+    }
+    save(data) {
+        fetch("/save", {
+            method: "POST",
+            body: data
+        })
+        .then(res => {
+            return res.json()
+        })
+        .then(res => {
+            if (res.success) {
+                alert("Colored map saved!")
+            } else {
+                alert("Colored map not saved!")
+            }
+        })
+    }
 }
 
 $(function () {
     const annotator = new Annotator(window.innerWidth-510, window.innerHeight);
-    annotator.loadNewImage("./images/pep.jpg", "./images/out.png")
     window.addEventListener("resize", e => {
         annotator.view.resize({width:window.innerWidth-510, height: window.innerHeight})
     });
 
     window.addEventListener('keydown', e => {
+        if (!annotator.inputAllowed) return;
         if (e.which === 16)  { // SHIFT
             annotator.view.dragZoom = true
         } else if (e.which === 17) {
@@ -673,10 +707,11 @@ $(function () {
     })
 
     window.addEventListener('keyup', e => {
+        if (!annotator.inputAllowed) return;
         if (e.which === 16)  { // SHIFT
             annotator.view.dragZoom = false
             annotator.view.dragStart = false;
-        } else if (e.which === 17) {
+        } else if (e.which === 17) { //CTRL
             annotator.view.mergeState = false
         }
     })
@@ -696,12 +731,14 @@ $(function () {
         }
     })
     window.tool.controls.emitter.subscribe('Custom Contour', data => {
+        if (!annotator.inputAllowed) return;
         if (data.state !== 'contour') {
             window.tool.controls.changeState('contour')
             annotator.state = 'contour'
         }
     })
     window.tool.controls.emitter.subscribe('Zone Marker', data => {
+        if (!annotator.inputAllowed) return;
         if (data.state !== 'fill') {
             annotator.imageDataToWorker(false)
             window.tool.controls.changeState('fill')
@@ -709,14 +746,35 @@ $(function () {
         }
     })
     window.tool.controls.emitter.subscribe('Undo', data => {
+        if (!annotator.inputAllowed) return;
         annotator.undo()
     })
     window.tool.controls.emitter.subscribe('New file', data => {
-        console.log(data.event.currentTarget.files)
+        var promise = new Promise(resolve => {
+            window.tool.slic.show(resolve)
+        })
+        promise.then(e => {
+            const file = data.event.currentTarget.files[0];
+            var f = new FormData()
+            f.append('image', file, file.name)
+            f.append("size", e.size)
+            f.append("compactness", e.compactness)
+            f.append("iterations", e.iterations)
+            annotator.upload(f)
+            data.event.currentTarget.value = "";
+        })
     })
     window.tool.controls.emitter.subscribe('Show/Hide Net', data => {
         annotator.view.netShown = !annotator.view.netShown
         if (annotator.view.netShown) data.event.currentTarget.classList.add('actived')
         else data.event.currentTarget.classList.remove('actived')
+    })
+    window.tool.controls.emitter.subscribe('Save', data => {
+        if (!annotator.inputAllowed) return;
+        annotator.origin.polycanvas.toBlob((blob)=> {
+            const fd = new FormData();
+            fd.append('image', blob, annotator.currentName+'_colored.png');
+            annotator.save(fd)
+        })
     })
 });

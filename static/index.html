@@ -24,6 +24,34 @@
             </div>
         </div>
     </div>
+    <div class="slic-controls hidden">
+        <div class="slic-panel">
+            <h4>Slic Options</h4>
+            <div class="input-cont">
+                <div class="inp-left">
+                    <div class="sp sp-size">
+                        <p class="sp-title">Superpixel size</p>
+                        <p class="sp-val sp-size-value">1500</p>
+                        <input id="sp-size-in" name="sp-size-in" type="range" min="0" max="7000" step="50">
+                    </div>
+                    <div class="sp sp-comp">
+                        <p class="sp-title">Compactness</p>
+                        <p class="sp-val sp-comp-value">20.0</p>
+                        <input id="sp-comp-in" name="sp-comp-in" type="range" min="0.5" max="40.0" step="0.5">
+                    </div>
+                    <div class="sp sp-it">
+                        <p class="sp-title">Iterations</p>
+                        <p class="sp-val sp-it-value">10</p>
+                        <input id="sp-it-in" name="sp-it-in" type="range" min="1" max="19" step="1">
+                    </div>
+                    <button class="ok">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="slic-mask"></div>
+    </div>
     <script src="js/jquery-3.2.1.min.js"></script>
     <script src="js/shortcut.js"></script>
     <script src="js/tool.js"></script>

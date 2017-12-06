@@ -200,14 +200,6 @@ $(function () {
         ]
     },
     {
-        "name": "Background",
-        "color": [
-            "1",
-            "2",
-            "3"
-        ]
-    },
-    {
         "name": "Crust ",
         "color": [
             "0",
@@ -251,7 +243,7 @@ $(function () {
             icon: 'img/jpg-image-file-format.svg',
             custom: 
                 `
-                <label>
+                <label id='label-uploader'>
                     <input type="file" name="uploader" id="uploader" accept="image/jpeg,image/jpg" class="hidden">
                     <img src="img/jpg-image-file-format.svg" alt="Upload new image">
                 </label>`,
@@ -577,6 +569,58 @@ $(function () {
         this.valueEl = this.hostElement.querySelector('.c-value')
     }
 
+    function SlicControls() {
+        this.resolver = null;
+        this.all = document.querySelector('.slic-controls');
+        this.spSizeEl = this.all.querySelector('.sp-size-value');
+        this.spSizeInput = this.all.querySelector('#sp-size-in');
+
+        this.spCompEl = this.all.querySelector('.sp-comp-value');
+        this.spCompInput = this.all.querySelector('#sp-comp-in');
+
+        this.spItEl = this.all.querySelector('.sp-it-value');
+        this.spItInput = this.all.querySelector('#sp-it-in');
+    }
+
+    SlicControls.prototype.init = function() {
+        this.spSizeEl.textContent = this.spSizeInput.value;
+        this.spCompEl.textContent = this.spCompInput.value;
+        this.spItEl.textContent = this.spItInput.value;
+
+        $(this.all).on('input', 'input', (e) => {
+            this.spSizeEl.textContent = this.spSizeInput.value;
+            this.spCompEl.textContent = this.spCompInput.value;
+            this.spItEl.textContent = this.spItInput.value;
+        })
+
+        $(this.all).on('click', 'button.ok', (e) => {
+            this.hide()
+        })
+        return this
+    }
+
+    SlicControls.prototype.getData = function() {
+        return {
+            size: parseInt(this.spSizeInput.value),
+            compactness: parseFloat(this.spCompInput.value),
+            iterations: parseInt(this.spItInput.value),
+        }
+    }
+
+    SlicControls.prototype.show = function(resolver) {
+        this.resolver = resolver;
+        this.all.classList.remove('hidden')
+    }
+
+    SlicControls.prototype.hide = function(resolver) {
+        if (this.resolver) this.resolver(this.getData());
+        this.all.classList.add('hidden')
+    }
+
+    function initSlicControls() {
+        return new SlicControls().init()
+    }
+
     function initCounter() {
         var c = document.querySelector(".counter")        
         var contV = c.querySelector(".c-value")
@@ -600,6 +644,7 @@ $(function () {
             "controls": initControls(buttons),
             "annotation": initToppings(toppings, keysToppings),
             "sauce": initSauces(sauceTypes, sauceTypesKeys),
+            "slic": initSlicControls(),
         }
     }
 
