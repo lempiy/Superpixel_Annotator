@@ -257,17 +257,19 @@ function getPixelXY(imgData, x, y) {
 
 function getNearestColor(imgData, center) {
     let current = [center]
+    let checked = {};
     while (current.length < 1000) {
         let newCircle = [];
         for (let i = 0; i < current.length; i++)
         {
             const p = checkPoint(imgData, current[i])
             if (p) return p;
+            checked[current[i].x + '' + current[i].y] = true
         }
         for (let j = 0; j < current.length; j++)
         {
             const pts = getPointsAround(imgData, current[j])
-            newCircle = newCircle.concat(pts)
+            newCircle = newCircle.concat(pts.filter(pt => !checked[pt.x + '' + pt.y]))
         }
         current = newCircle;
     }
