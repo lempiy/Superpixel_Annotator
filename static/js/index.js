@@ -175,7 +175,7 @@ class Origin {
         this.sctx.clearRect(0, 0, this.savingcanvas.width, this.savingcanvas.height);
         this.savingcanvas.width = this.polycanvas.width
         this.savingcanvas.height = this.polycanvas.height
-        this.sctx.fillStyle = "#010202";
+        this.sctx.fillStyle = "#010203";
         this.sctx.fillRect(0, 0, this.savingcanvas.width, this.savingcanvas.height);
         this.sctx.drawImage(this.polycanvas, 0, 0)
     }
@@ -666,6 +666,16 @@ class Annotator {
                     segments: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height),
                 })
             }
+            if (e.data.event === "saveResult") {
+                this.origin.sctx.clearRect(0, 0, this.origin.savingcanvas.width, this.origin.savingcanvas.height)
+                this.origin.sctx.putImageData(e.data.msg, 0, 0)
+                console.log("DO SAVE!")
+                this.origin.savingcanvas.toBlob((blob)=> {
+                    const fd = new FormData();
+                    fd.append('image', blob, this.currentName+'_colored.png');
+                    this.save(fd)
+                })
+            }
         }
     }
     upload(f) {
@@ -783,10 +793,7 @@ $(function () {
     window.tool.controls.emitter.subscribe('Save', data => {
         if (!annotator.inputAllowed) return;
         annotator.origin.drawSaving()
-        annotator.origin.savingcanvas.toBlob((blob)=> {
-            const fd = new FormData();
-            fd.append('image', blob, annotator.currentName+'_colored.png');
-            annotator.save(fd)
-        })
+        let message = { cmd: 'save', img: annotator.origin.sctx.getImageData(0, 0, annotator.origin.savingcanvas.width, annotator.origin.savingcanvas.height)};
+        wasmWorker.postMessage(message)
     })
 });
