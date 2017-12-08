@@ -228,6 +228,9 @@ class View {
     }
 
     resize(viewSize) {
+        if (!this.currentName) {
+            return
+        }
         this.clear()
         this.size = viewSize
         this.c.width = this.co.width = this.cc.width = viewSize.width
@@ -687,11 +690,15 @@ class Annotator {
             return res.json()
         })
         .then(res => {
+            window.tool.spinner.hide()
             if (res.success) {
                 this.currentName = res.name
                 this.loadNewImage(res.image+"?time="+Date.now(), res.image_net+"?time="+Date.now())
                 this.inputAllowed = true;
             }
+        })
+        .catch(err => {
+            window.tool.spinner.hide()
         })
     }
     save(data) {
@@ -775,6 +782,7 @@ $(function () {
             window.tool.slic.show(resolve)
         })
         promise.then(e => {
+            window.tool.spinner.show()
             const file = data.event.currentTarget.files[0];
             var f = new FormData()
             f.append('image', file, file.name)

@@ -230,21 +230,25 @@ $(function () {
         {
             id: 'Zone Marker',
             icon: 'img/paint-bucket.svg',
-            state: 'fill'
+            state: 'fill',
+            shortcut: 'Shift+D'
         },
         {
             id: 'Custom Contour',
             icon: 'img/pencil-edit-button.svg',
-            state: 'contour'
+            state: 'contour',
+            shortcut: 'Shift+F'
         },
         {
             id: 'Show/Hide Net',
             icon: 'img/grid.svg',
-            preactived: true
+            preactived: true,
+            shortcut: 'Shift+E'
         },
         {
             id: 'Undo',
             icon: 'img/undo-arrow.svg',
+            shortcut: 'Ctrl+Z'
         },
         {
             id: 'Upload new image',
@@ -262,12 +266,13 @@ $(function () {
                 callback: (event) => {
                     this.emit
                 }
-            }
-            
+            },
+            shortcut: 'Shift+W'
         },
         {
             id: 'Save',
             icon: 'img/floppy-disk.svg',
+            shortcut: 'Shift+S'
         },
     ]
     var controls = $('.controls')
@@ -394,13 +399,14 @@ $(function () {
             if (el.state) acc[el.state] = el
             return acc
         }, {})
+        this.elements = {};
     }
 
     Controls.prototype.render = function() {
         this.host.html(this.buttons.reduce(function(acc, button) {
             if (!button.custom) {
                 return acc += `<li>
-                            <button id="${button.id}" title="${button.id}"
+                            <button id="${button.id}" title="${button.id} (${button.shortcut})"
                                 class="${button.preactived ? 'actived' : ''}" 
                                 data-status="${button.state || ''}">
                                 <img src="${button.icon}" alt="${button.id}">
@@ -414,6 +420,7 @@ $(function () {
         }, "<ul class='canvas-controller'>") + "</ul>")
         $(this.host.children()[0]).children().each((i, el) => {
             let elm = $(el).children().get(0)
+            this.elements[elm.id] = elm
             let state = $(elm).data("status")
             if (state) this.states[state].element = elm
         })
@@ -429,6 +436,16 @@ $(function () {
             })
         })
         this.buttons.forEach(button => {
+            if (!button.custom) {
+                shortcut.add(button.shortcut, () => {
+                    let event = {}
+                    event.currentTarget = this.elements[button.id]
+                    this.emitter.emit(button.id, {
+                        state: this.currentState,
+                        event: event,
+                    })
+                })
+            }
             if (button.event) {
                 this.host.on(button.event.type, button.event.target, e => {
                     this.emitter.emit(button.event.name, {
@@ -445,6 +462,22 @@ $(function () {
         let state = this.states[newState];
         $(lastState.element).removeClass('actived')
         $(state.element).addClass('actived')
+    }
+
+    function Spinner() {
+        this.element = $('.spinner')
+    }
+
+    Spinner.prototype.show = function() {
+        this.element.removeClass('hidden')
+    }
+
+    Spinner.prototype.hide = function() {
+        this.element.addClass('hidden')
+    }
+
+    function initSpinner() {
+        return new Spinner()
     }
 
     function ButtonList(options) {
@@ -653,6 +686,7 @@ $(function () {
             "annotation": initToppings(toppings, keysToppings),
             "sauce": initSauces(sauceTypes, sauceTypesKeys),
             "slic": initSlicControls(),
+            "spinner": initSpinner()
         }
     }
 

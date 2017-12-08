@@ -74,6 +74,9 @@ function mergeSegments(point1, point2) {
             ci2 = i
         }
     }
+    if (contour1 === null || contour2 === null) {
+        return
+    }
     tmp = segments.clone();
     out = segments.clone();
     mask = cv.Mat.zeros(0, 0, cv.CV_8U);
@@ -237,13 +240,14 @@ function getContoursSave(imageData) {
         let rgba = getNearestColor(imageData, segm.centroid);
         let c = new cv.Scalar(rgba[0], rgba[1], rgba[2], rgba[3])
         cv.drawContours(out, cntrs, segm.i, c, -1, 0, hrh, 0, [0,0]);
+        c.delete();
     }) 
     console.log("DONE!")
 
     var imd = new ImageData(new Uint8ClampedArray(out.data()), w, h)
     console.log(imd)
     postMessage({event:'saveResult', msg: imd, poly: true});
-    img.delete(); out.delete();
+    img.delete(); out.delete(); cntrs.delete(); hrh.delete();
 }
 
 function getPixel(imgData, index) {
