@@ -9,7 +9,6 @@ self.onmessage = function (e) {
         case 'imageNew':
         console.log('imageNew recieved')
             getContours(e.data.img, e.data.initial);
-            // filterSegments();
             break;
         case 'click':
             drawSegment([e.data.coor.x, e.data.coor.y], e.data.color)
@@ -101,19 +100,16 @@ function mergeSegments(point1, point2) {
         if (ci1 === i || ci2 === i || i === gis) continue;
         if (cv.contourArea(contours.get(i), false) > 100) {
             cv.drawContours(out, contours, i, color, 1, 0, hierarchy, 0, [0,0]);
-            //cv.drawContours(tmp, contours, i, color, 2, cv.LineTypes.LINE_8.value, hierarchy, 100, [0,0]);
         }
     }
-    console.log( cv.LineTypes.LINE_8.value)
+
     // draw merged contour
     cv.drawContours(out, cnts, cnts.size()-1, trnsp, -1, 0, hrar, 0, [0,0]);
     cv.drawContours(out, cnts, cnts.size()-1, color, 1, 0, hrar, 0, [0,0]);
-    // cv.drawContours(tmp, cnts, cnts.size()-1, trnsp, -1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
-    // cv.drawContours(tmp, cnts, cnts.size()-1, color, 1, cv.LineTypes.LINE_8.value, hrar, 100, [0,0]);
     var imd = new ImageData(new Uint8ClampedArray(out.data()), w, h)
     postMessage({event:'newCnts', msg: imd, poly: true});
     
-    tmp.delete(); mask.delete(); cnts.delete(); hrar.delete();
+    tmp.delete(); mask.delete(); cnts.delete(); out.delete(); hrar.delete(); color.delete(); trnsp.delete();
     getContours(imd, false)
     console.log('End merge', performance.now())
 }
@@ -162,41 +158,6 @@ function getContours(imageData, initial) {
         segments = dst.clone()
     }
     img.delete(); mask.delete(); zero.delete(); dst.delete();
-}
-
-function filterSegments() {
-    let color = new cv.Scalar(255, 255,
-        255, 255);
-    let red = new cv.Scalar(255, 0,
-        0, 255);
-    let trnsp = new cv.Scalar(0, 0,
-        0, 0);
-
-    let tresh = 1;
-    let max_tresh = 1;
-
-    let out = segments.clone();
-    mask = cv.Mat.zeros(0, 0, cv.CV_8U);
-
-    let zero = new cv.Scalar(0, 0, 0, 0)
-    out.setTo(zero, mask)
-    
-    // draw prev contours
-    for (let i = 0; i < contours.size(); ++i) {
-        if (i === gis) continue;
-        if (cv.contourArea(contours.get(i), false) > 100) {
-            
-            //cv.drawContours(out, contours, i, trnsp, -1, 0, hierarchy, 0, [0,0]);
-            cv.drawContours(out, contours, i, color, 1, 0, hierarchy, 0, [0,0]);
-            
-        }
-    }
-    var imd = new ImageData(new Uint8ClampedArray(out.data()), w, h)
-    postMessage({event:'newCnts', msg: imd, poly: true});
-    console.log(out)
-    
-    mask.delete();
-    getContours(imd, false)
 }
 
 function getContoursSave(imageData) {
