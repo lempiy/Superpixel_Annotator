@@ -17,9 +17,6 @@ function line(imd, x0, y0, x1, y1, color, width) {
     while(true) {
         getPointsAround(imd, x0, y0, color, width);
         if (Math.abs(x0-x1)<0.0001 && Math.abs(y0-y1)<0.0001) break;
-        if (counter > 10) {
-            break
-        }
         var e2 = 2*err;
         if (e2 >-dy) {
             err -= dy; x0  += sx;
@@ -153,6 +150,8 @@ class Origin {
         this.clickX = [];
         this.clickY = [];
         this.clickDrag = [];
+        this.lastX = null;
+        this.lastY = null;
     }
 
     addClick(x, y, dragging) {
@@ -181,25 +180,22 @@ class Origin {
         //this.nctx.translate(0, 0);
     }
 
-    drawBrush(width, color){
+    drawBrush(x, y, width, color){
         const imd = this.pctx.getImageData(0, 0, this.polycanvas.width, this.polycanvas.height)
-        for (var i=0; i < this.clickX.length - 1; i++) {
-            this.pctx.fillStyle ='#ffffff';
-            
-            console.log(Math.floor(this.clickX[i]), Math.floor(this.clickY[i]),
-            Math.floor(this.clickX[i+1]), Math.floor(this.clickY[i+1]))
+        if (this.lastX !== null && this.lastY !== null) {
             line(imd,
-                Math.floor(this.clickX[i]), Math.floor(this.clickY[i]),
-                Math.floor(this.clickX[i+1]), Math.floor(this.clickY[i+1]),
+                Math.floor(this.lastX), Math.floor(this.lastY),
+                Math.floor(x), Math.floor(y),
                 color, width);
-            this.pctx.rect(Math.floor(this.clickX[i]), Math.floor(this.clickY[i]),4,4);
-            this.pctx.rect(Math.floor(this.clickX[i+1]), Math.floor(this.clickY[i+1]),4,4);
+        } else {
+            line(imd,
+                Math.floor(x), Math.floor(y),
+                Math.floor(x-1), Math.floor(y),
+                color, width);
         }
-        for (var i=0; i < this.clickX.length - 1; i++) {
-            this.pctx.fillStyle ='#ffffff';
-            this.pctx.rect(Math.floor(this.clickX[i]), Math.floor(this.clickY[i]),4,4);
-            this.pctx.rect(Math.floor(this.clickX[i+1]), Math.floor(this.clickY[i+1]),4,4);
-        }
+
+        this.lastX = x;
+        this.lastY = y;
         this.pctx.putImageData(imd, 0, 0)
     }
 
@@ -569,7 +565,7 @@ class Annotator {
                 this.drawContour(1);
                 this.origin.drawContour();
             } else if (self.state === 'brush' && self.currentColor) {
-                this.origin.drawBrush(self.currentThicknessBrush, self.currentColor)
+                this.origin.drawBrush(coords.x, coords.y, self.currentThicknessBrush, self.currentColor)
                 this.drawBrush();
             }
         }
@@ -616,7 +612,7 @@ class Annotator {
                     this.drawContour(1);
                     this.origin.drawContour();
                 } else if (self.state === 'brush' && self.currentColor) {
-                    this.origin.drawBrush(self.currentThicknessBrush, self.currentColor)
+                    this.origin.drawBrush(coords.x, coords.y, self.currentThicknessBrush, self.currentColor)
                     this.drawBrush();
                 }
             }
@@ -632,6 +628,8 @@ class Annotator {
             self.paint = false;
             this.clearLines()
             this.origin.clearLines()
+            this.origin.lastX = null
+            this.origin.lastY = null
             if (self.state === 'contour' || self.state === 'brush') {
                 self.undoq.addToQueue({type: 'draw', 
                     contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
