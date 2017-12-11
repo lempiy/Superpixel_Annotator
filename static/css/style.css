@@ -306,3 +306,7 @@ input[type=range] {
     align-items: center;
     display: flex;
 }
+
+.thickness-box {
+    text-align: center;
+}

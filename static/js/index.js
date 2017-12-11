@@ -5,6 +5,62 @@ const drawRect = (x,y, ctx) => {
     ctx.stroke();
 }
 
+
+function line(imd, x0, y0, x1, y1, color, width) {
+    var dx = Math.abs(x1-x0);
+    var dy = Math.abs(y1-y0);
+    var sx = (x0 < x1) ? 1 : -1;
+    var sy = (y0 < y1) ? 1 : -1;
+    var err = dx-dy;
+    var counter = 0
+
+    while(true) {
+        getPointsAround(imd, x0, y0, color, width);
+        if (Math.abs(x0-x1)<0.0001 && Math.abs(y0-y1)<0.0001) break;
+        if (counter > 10) {
+            break
+        }
+        var e2 = 2*err;
+        if (e2 >-dy) {
+            err -= dy; x0  += sx;
+        }
+        if (e2 < dx) {
+            err += dx; y0  += sy; 
+        }
+        counter++
+    }
+}
+
+function distance(p1, p2) {
+   dx = p2.x - p1.x; dx *= dx;
+   dy = p2.y - p1.y; dy *= dy;
+   return Math.sqrt( dx + dy );
+}
+
+function getPointsAround(imd, x, y, color, r) {
+    let amount = 0
+    for (var j=x-r; j<=x+r; j++) {
+        for (var k=y-r; k<=y+r; k++) {
+            if (distance({x:j,y:k},{x:x,y:y}) <= r) {
+                amount++
+                setPixelXY(imd, Math.floor(j), Math.floor(k), color)
+            }
+        }
+    }
+}
+
+function setPixel(imgData, index, color) {
+    var i = index*4, d = imgData.data;
+    //console.log('before', "R", d[i], 'G', d[i+1], 'B', d[i+2], 'A', d[i+3])
+    d[i] = color[0]; d[i+1] = color[1];
+    d[i+2] = color[2]; d[i+3] = color[3];
+    //console.log('after', "R", d[i], 'G', d[i+1], 'B', d[i+2], 'A', d[i+3])
+}
+
+function setPixelXY(imgData, x, y, color) {
+    setPixel(imgData, y*imgData.width+x, color);
+}
+
 class Sprite {
     constructor(src) {
         this.url = src;
@@ -125,6 +181,46 @@ class Origin {
         //this.nctx.translate(0, 0);
     }
 
+    drawBrush(width, color){
+        const imd = this.pctx.getImageData(0, 0, this.polycanvas.width, this.polycanvas.height)
+        for (var i=0; i < this.clickX.length - 1; i++) {
+            this.pctx.fillStyle ='#ffffff';
+            
+            console.log(Math.floor(this.clickX[i]), Math.floor(this.clickY[i]),
+            Math.floor(this.clickX[i+1]), Math.floor(this.clickY[i+1]))
+            line(imd,
+                Math.floor(this.clickX[i]), Math.floor(this.clickY[i]),
+                Math.floor(this.clickX[i+1]), Math.floor(this.clickY[i+1]),
+                color, width);
+            this.pctx.rect(Math.floor(this.clickX[i]), Math.floor(this.clickY[i]),4,4);
+            this.pctx.rect(Math.floor(this.clickX[i+1]), Math.floor(this.clickY[i+1]),4,4);
+        }
+        for (var i=0; i < this.clickX.length - 1; i++) {
+            this.pctx.fillStyle ='#ffffff';
+            this.pctx.rect(Math.floor(this.clickX[i]), Math.floor(this.clickY[i]),4,4);
+            this.pctx.rect(Math.floor(this.clickX[i+1]), Math.floor(this.clickY[i+1]),4,4);
+        }
+        this.pctx.putImageData(imd, 0, 0)
+    }
+
+    drawEraser(width){
+        this.pctx.strokeStyle = `rgba(0,0,0,0)`;
+        this.pctx.lineJoin = "round";
+        this.pctx.lineWidth = width;
+                  
+        for (var i=0; i < this.clickX.length; i++) {		
+            this.pctx.beginPath();
+            if (this.clickDrag[i] && i){
+                this.pctx.moveTo(Math.floor(this.clickX[i-1])-0.5, Math.floor(this.clickY[i-1]) - 0.5);
+            } else {
+                this.pctx.moveTo(Math.floor(this.clickX[i]-1)-0.5, Math.floor(this.clickY[i]) - 0.5);
+            }
+            this.pctx.lineTo(Math.floor(this.clickX[i])-0.5, Math.floor(this.clickY[i])-0.5);
+            this.pctx.closePath();
+            this.pctx.stroke();
+        }
+    }
+
     clearLines() {
         this.clickX = [];
         this.clickY = [];
@@ -204,6 +300,7 @@ class View {
         this.shiftFactor = 0.0;
         this.shiftX = 0;
         this.shiftY = 0;
+        this.zoomLvl = 1;
         this.dragZoom = false;
         this.dragStart = null;
         this.mergeState = false;
@@ -228,9 +325,6 @@ class View {
     }
 
     resize(viewSize) {
-        if (!this.currentName) {
-            return
-        }
         this.clear()
         this.size = viewSize
         this.c.width = this.co.width = this.cc.width = viewSize.width
@@ -262,6 +356,28 @@ class View {
             this.ctx.lineTo(Math.floor(this.clickX[i])-0.5, Math.floor(this.clickY[i])-0.5);
             this.ctx.closePath();
             this.ctx.stroke();
+        }
+    }
+
+    drawBrush(width, color){
+        this.sCent.draw(this.ctxc)
+    }
+
+    drawEraser(width){
+        this.ctxc.strokeStyle = `rgba(0,0,0,255)`;
+        this.ctxc.lineJoin = "round";
+        this.ctxc.lineWidth = width;
+                  
+        for (var i=0; i < this.clickX.length; i++) {		
+            this.ctxc.beginPath();
+            if (this.clickDrag[i] && i){
+                this.ctxc.moveTo(Math.floor(this.clickX[i-1])-0.5, Math.floor(this.clickY[i-1]) - 0.5);
+            } else {
+                this.ctxc.moveTo(Math.floor(this.clickX[i]-1)-0.5, Math.floor(this.clickY[i]) - 0.5);
+            }
+            this.ctxc.lineTo(Math.floor(this.clickX[i])-0.5, Math.floor(this.clickY[i])-0.5);
+            this.ctxc.closePath();
+            this.ctxc.stroke();
         }
     }
 
@@ -306,10 +422,10 @@ class View {
     setScale(scale, isCenter, shiftX, shiftY) {
         this.clear()
         if (shiftX) {
-            this.shiftX += shiftX
+            this.shiftX += shiftX;
         }
         if (shiftY) {
-            this.shiftY += shiftY
+            this.shiftY += shiftY;
         }
         if (isCenter) {
             this.sBack.centX = this.co.width * 0.5 + (this.co.width * this.shiftX);
@@ -393,6 +509,7 @@ class Annotator {
         this.currentColor = null;
         this.state = 'fill';
         this.origin = new Origin();
+        this.currentThicknessBrush = 10;
         this.view = new View({width: width, height: height}, this.origin, 
         {
             clickGreedCallback, 
@@ -445,10 +562,16 @@ class Annotator {
             let coords = this.origin.transformCoords({x: mouseX, y: mouseY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
                   
             self.paint = true;
+            
             this.addClick(mouseX, mouseY);
-            this.drawContour(1);
             this.origin.addClick(coords.x, coords.y);
-            this.origin.drawContour();
+            if (self.state === 'contour') {
+                this.drawContour(1);
+                this.origin.drawContour();
+            } else if (self.state === 'brush' && self.currentColor) {
+                this.origin.drawBrush(self.currentThicknessBrush, self.currentColor)
+                this.drawBrush();
+            }
         }
 
         function mousemoveCallback (e) {
@@ -488,9 +611,14 @@ class Annotator {
                   
             if (self.paint) {
                 this.addClick(mouseX, mouseY, true);
-                this.drawContour(1);
                 this.origin.addClick(coords.x, coords.y, true);
-                this.origin.drawContour();
+                if (self.state === 'contour') {
+                    this.drawContour(1);
+                    this.origin.drawContour();
+                } else if (self.state === 'brush' && self.currentColor) {
+                    this.origin.drawBrush(self.currentThicknessBrush, self.currentColor)
+                    this.drawBrush();
+                }
             }
         }
 
@@ -504,10 +632,12 @@ class Annotator {
             self.paint = false;
             this.clearLines()
             this.origin.clearLines()
-            self.undoq.addToQueue({type: 'draw', 
-                contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
-                segments: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height),
-            })
+            if (self.state === 'contour' || self.state === 'brush') {
+                self.undoq.addToQueue({type: 'draw', 
+                    contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
+                    segments: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height),
+                })
+            }
         }
 
         function wheelCallback (e) {
@@ -539,22 +669,27 @@ class Annotator {
                     this.setScale(this.scale + 0.1, true,
                         -shiftX, -shiftY)
                 }
+                this.zoomLvl++;
             } else {
-                if (Annotator.isPointInCircle(mouseX, mouseY, canvasCenterX, canvasCenterY, Math.floor(this.size.width / 8))) {
-                    this.setScale(this.scale - 0.1, false)
-                } else if (!isTop && isLeft) {
-                    this.setScale(this.scale - 0.1, true,
-                        -shiftX, shiftY)
-                } else if (isTop && isLeft) {
-                    this.setScale(this.scale - 0.1, true,
-                        -shiftX, -shiftY)
-                } else if (isTop && !isLeft) {
-                    this.setScale(this.scale - 0.1, true,
-                        shiftX, -shiftY)
-                } else {
-                    this.setScale(this.scale - 0.1, true,
-                        shiftX, shiftY)
+                if (this.zoomLvl === 1) return;
+                let zShiftX, zShiftY;
+                if (this.shiftX !== 0) {
+                    if (this.shiftX > 0) {
+                        zShiftX = -this.shiftX / (this.zoomLvl - 1);
+                    } else {
+                        zShiftX = -this.shiftX / (this.zoomLvl - 1);
+                    }
                 }
+                if (this.shiftY !== 0) {
+                    if (this.shiftY > 0) {
+                        zShiftY = -this.shiftY / (this.zoomLvl - 1);
+                    } else {
+                        zShiftY = -this.shiftY / (this.zoomLvl - 1);
+                    }
+                }
+                this.setScale(this.scale - 0.1, true,
+                    zShiftX, zShiftY)
+                this.zoomLvl--;
             }
         }
     }
@@ -568,7 +703,7 @@ class Annotator {
     }
 
     canDraw() {
-        return this.state === 'contour'
+        return this.state === 'contour' || this.state === 'brush'
     }
 
     undoSegments(segments) {
@@ -746,14 +881,14 @@ $(function () {
 
     window.tool.annotation.emitter.subscribe("input:list", data => {
         if (data.value) {
-            annotator.currentColor = data.color
+            annotator.currentColor = [...data.color, 255]
         } else {
             annotator.currentColor = null
         }
     })
     window.tool.sauce.emitter.subscribe("input:list", data => {
         if (data.value) {
-            annotator.currentColor = data.color
+            annotator.currentColor = [...data.color, 255]
         } else {
             annotator.currentColor = null
         }
@@ -765,6 +900,18 @@ $(function () {
             annotator.state = 'contour'
         }
     })
+    window.tool.controls.emitter.subscribe('Brush', data => {
+        if (!annotator.inputAllowed) return;
+        if (data.state !== 'brush') {
+            window.tool.controls.changeState('brush')
+            annotator.state = 'brush'
+        }
+    })
+
+    window.tool.controls.emitter.subscribe('Change Thickness', data => {
+        annotator.currentThicknessBrush = +data.event.target.value
+    })
+
     window.tool.controls.emitter.subscribe('Zone Marker', data => {
         if (!annotator.inputAllowed) return;
         if (data.state !== 'fill') {
@@ -805,3 +952,5 @@ $(function () {
         wasmWorker.postMessage(message)
     })
 });
+
+

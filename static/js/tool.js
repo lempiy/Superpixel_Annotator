@@ -240,6 +240,30 @@ $(function () {
             shortcut: 'Shift+F'
         },
         {
+            id: 'Brush',
+            icon: 'img/brush-stroke.svg',
+            state: 'brush',
+            shortcut: 'Shift+G'
+        },
+        {
+            id: 'Change Thickness',
+            icon: '',
+            custom: 
+                `<div class="thickness-box">
+                    <p>10</p>
+                    <input id="thickness" type="range" min="1" max="100" value="10" step="1">
+                </div>`,
+            event: {
+                type: "input",
+                target: "#thickness",
+                name: 'Change Thickness',
+                callback: (event) => {
+                    $(event.target).siblings().text(event.target.value)
+                }
+            },
+            shortcut: 'Shift+H'
+        },
+        {
             id: 'Show/Hide Net',
             icon: 'img/grid.svg',
             preactived: true,
@@ -262,10 +286,7 @@ $(function () {
             event: {
                 type: "change",
                 target: "#uploader",
-                name: 'New file',
-                callback: (event) => {
-                    this.emit
-                }
+                name: 'New file'
             },
             shortcut: 'Shift+W'
         },
@@ -451,6 +472,9 @@ $(function () {
                     this.emitter.emit(button.event.name, {
                         event: e,
                     })
+                    if (button.event.callback) {
+                        button.event.callback(e)
+                    }
                 })
             }
         })
