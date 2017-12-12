@@ -251,7 +251,7 @@ $(function () {
             custom: 
                 `<div class="thickness-box">
                     <p>10</p>
-                    <input id="thickness" type="range" min="1" max="100" value="10" step="1">
+                    <input id="thickness" type="range" min="1" max="60" value="10" step="1">
                 </div>`,
             event: {
                 type: "input",
@@ -275,7 +275,7 @@ $(function () {
             custom: 
                 `<div class="thickness-box">
                     <p>10</p>
-                    <input id="thickness-er" type="range" min="1" max="100" value="10" step="1">
+                    <input id="thickness-er" type="range" min="1" max="60" value="10" step="1">
                 </div>`,
             event: {
                 type: "input",
