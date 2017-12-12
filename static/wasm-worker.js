@@ -126,7 +126,6 @@ function getContours(imageData, initial) {
     w = imageData.width;
     h = imageData.height;
     let img = cv.matFromArray(imageData, cv.CV_8UC4);
-    console.log(imageData)
 
     dst = cv.Mat.zeros(img.cols, img.rows, cv.CV_8UC4);
     mask = cv.Mat.zeros(0, 0, cv.CV_8U);
@@ -136,8 +135,6 @@ function getContours(imageData, initial) {
     dst.setTo(zero, mask)
     
     cv.cvtColor(img, img, cv.ColorConversionCodes.COLOR_RGBA2GRAY.value, 0);
-
-    //cv.threshold(img, img, tresh, max_tresh, cv.ThresholdTypes.THRESH_BINARY.value);
 
     contours = new cv.MatVector();
     hierarchy = new cv.Mat();
@@ -198,7 +195,7 @@ function getContoursSave(imageData) {
     }
     poolSmall.forEach(segm => {
         if (!segm.area) return
-        let rgba = getNearestColor(imageData, segm.centroid);
+        let rgba = getNearestColor(imageData, segm.centroid, [1, 2, 3, 255]);
         let c = new cv.Scalar(rgba[0], rgba[1], rgba[2], rgba[3])
         cv.drawContours(out, cntrs, segm.i, c, -1, 0, hrh, 0, [0,0]);
         c.delete();
@@ -206,9 +203,91 @@ function getContoursSave(imageData) {
     console.log("DONE!")
 
     var imd = new ImageData(new Uint8ClampedArray(out.data()), w, h)
-    console.log(imd)
-    postMessage({event:'saveResult', msg: imd, poly: true});
+    clearColorNoise(imd)
+    
     img.delete(); out.delete(); cntrs.delete(); hrh.delete();
+}
+
+function clearColorNoise(imageData) {
+    const colorMap = {}
+    let pixel;
+    let d = imageData.data
+    for (let i = 0; i < d.length - 3; i = i + 4)
+    {
+        const pixel = [d[i], d[i+1], d[i+2], d[i+3]]
+        colorMap[pixel.join(",")] = pixel
+    }
+    delete colorMap[[1,2,3,255].join(",")]
+
+    let out = cv.matFromArray(imageData, cv.CV_8UC4);
+    let outer = out.clone();
+
+    Object.keys(colorMap).forEach(key => {
+        const color = colorMap[key]
+        const bwImd = toBlackAndWhite(imageData, color)
+        let img = cv.matFromArray(bwImd, cv.CV_8UC4);
+
+        cv.cvtColor(img, img, cv.ColorConversionCodes.COLOR_RGBA2GRAY.value, 0);
+
+        let cntrs = new cv.MatVector();
+        let hrh = new cv.Mat();
+
+        cv.findContours(img, cntrs, hrh, cv.RetrievalModes.RETR_CCOMP.value, cv.ContourApproximationModes.CHAIN_APPROX_NONE.value, [0,0])
+        
+        const poolSmall = [];
+
+        for (let i = 0; i < cntrs.size(); ++i) {
+            let M = cv.moments(cntrs.get(i), false);
+            let cx = Math.floor(M.m10/M.m00)
+            let cy =  Math.floor(M.m01/M.m00)
+            M.delete()
+            let area = cv.contourArea(cntrs.get(i), false)
+            let colArr = getPixelXY(imageData,cx, cy)
+            if (area < 100) {
+                poolSmall.push({
+                    area: area,
+                    i: i,
+                    centroid: {
+                        x: cx,
+                        y: cy
+                    },
+                    color: colArr,
+                })
+            }
+        }
+
+        poolSmall.forEach(segm => {
+            if (!segm.area) return
+            let rgba = getNearestColor(imageData, segm.centroid, segm.color);
+            let c = new cv.Scalar(rgba[0], rgba[1], rgba[2], rgba[3])
+            cv.drawContours(outer, cntrs, segm.i, c, -1, 0, hrh, 0, [0,0]);
+            imageData = new ImageData(new Uint8ClampedArray(outer.data()), w, h)
+            c.delete();
+        })
+
+        img.delete(); cntrs.delete(); hrh.delete();
+    })
+
+    var imd = new ImageData(new Uint8ClampedArray(outer.data()), w, h)
+    postMessage({event:'saveResult', msg: imd, poly: true});
+    out.delete(); outer.delete();
+}
+
+function toBlackAndWhite(imageData, c) {
+    var imd = new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height)
+    imd.data.set(imageData.data)
+    const d = imd.data
+    for (let i = 0; i < d.length - 3; i = i + 4)
+    {
+        const pixel = [d[i], d[i+1], d[i+2], d[i+3]]
+        if (pixel[0] === c[0] && pixel[1] === c[1] && 
+            pixel[2] === c[2] && pixel[3] === c[3]) {
+            d[i] = 0; d[i+1] = 0; d[i+2] = 0; d[i+3] = 0;
+        } else {
+            d[i] = 255; d[i+1] = 255; d[i+2] = 255; d[i+3] = 255;
+        }
+    }
+    return imd
 }
 
 function getPixel(imgData, index) {
@@ -220,14 +299,14 @@ function getPixelXY(imgData, x, y) {
     return getPixel(imgData, y*imgData.width+x);
 }
 
-function getNearestColor(imgData, center) {
+function getNearestColor(imgData, center, ccolor) {
     let current = [center]
     let checked = {};
     while (current.length < 1000) {
         let newCircle = [];
         for (let i = 0; i < current.length; i++)
         {
-            const p = checkPoint(imgData, current[i])
+            const p = checkPoint(imgData, current[i], ccolor)
             if (p) return p;
             checked[current[i].x + '' + current[i].y] = true
         }
@@ -238,12 +317,12 @@ function getNearestColor(imgData, center) {
         }
         current = newCircle;
     }
-    return [255,255,255,255]
+    return [0,255,0,255]
 }
 
-function checkPoint(imgData, point) {
+function checkPoint(imgData, point, current) {
     const p = getPixel(imgData, point.y*imgData.width+point.x)
-    if (p[0]===1 && p[1]===2 && p[2]===3) {
+    if (p[0]===current[0] && p[1]===current[1] && p[2]===current[2]) {
         return null
     }
     return p;

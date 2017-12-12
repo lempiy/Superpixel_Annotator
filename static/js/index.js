@@ -35,12 +35,14 @@ function distance(p1, p2) {
 }
 
 function getPointsAround(imd, x, y, color, r) {
-    let amount = 0
     for (var j=x-r; j<=x+r; j++) {
         for (var k=y-r; k<=y+r; k++) {
             if (distance({x:j,y:k},{x:x,y:y}) <= r) {
-                amount++
-                setPixelXY(imd, Math.floor(j), Math.floor(k), color)
+                j = Math.floor(j);
+                k = Math.floor(k);
+                if (j<0 || j>imd.width) continue;
+                if (k<0 || k>imd.height) continue;
+                setPixelXY(imd, j, k, color)
             }
         }
     }
@@ -271,6 +273,11 @@ class Origin {
         this.sctx.fillStyle = "#010203";
         this.sctx.fillRect(0, 0, this.savingcanvas.width, this.savingcanvas.height);
         this.sctx.drawImage(this.polycanvas, 0, 0)
+    }
+
+    putPolygonsToWorker() {
+        let message = { cmd: 'put', img: this.pctx.getImageData(0, 0, this.polycanvas.width, this.polycanvas.height)};
+        wasmWorker.postMessage(message)
     }
 }
 
@@ -643,6 +650,9 @@ class Annotator {
                     contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
                     segments: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height),
                 })
+            }
+            if (self.state === 'brush' || self.state === 'eraser') {
+                this.origin.putPolygonsToWorker()
             }
         }
 
