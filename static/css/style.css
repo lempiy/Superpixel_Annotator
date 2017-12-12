@@ -94,13 +94,14 @@ li {
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 75px;
-    height: 75px;
+    width: 60px;
+    height: 60px;
     border: 2px solid #333;
     border-radius: 5px;
     cursor: pointer;
     background-color: transparent;
-    margin: 20px auto;
+    margin: 15px auto;
+    box-sizing: border-box;
 }
 
 .controls button.actived {
@@ -108,7 +109,7 @@ li {
 }
 
 .controls button img, .controls label img {
-    width: 55px;
+    width: 45px;
 }
 
 .controls button.submit:after {

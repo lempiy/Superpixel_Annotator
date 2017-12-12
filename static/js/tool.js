@@ -264,6 +264,30 @@ $(function () {
             shortcut: 'Shift+H'
         },
         {
+            id: 'Eraser',
+            icon: 'img/eraser.svg',
+            state: 'eraser',
+            shortcut: 'Shift+A'
+        },
+        {
+            id: 'Change Thickness Eraser',
+            icon: '',
+            custom: 
+                `<div class="thickness-box">
+                    <p>10</p>
+                    <input id="thickness-er" type="range" min="1" max="100" value="10" step="1">
+                </div>`,
+            event: {
+                type: "input",
+                target: "#thickness-er",
+                name: 'Change Thickness Eraser',
+                callback: (event) => {
+                    $(event.target).siblings().text(event.target.value)
+                }
+            },
+            shortcut: 'Shift+T'
+        },
+        {
             id: 'Show/Hide Net',
             icon: 'img/grid.svg',
             preactived: true,

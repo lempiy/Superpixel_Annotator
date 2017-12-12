@@ -196,6 +196,7 @@ class Origin {
 
         this.lastX = x;
         this.lastY = y;
+        this.pctx.clearRect(0, 0, this.polycanvas.width, this.polycanvas.height)
         this.pctx.putImageData(imd, 0, 0)
     }
 
@@ -356,6 +357,7 @@ class View {
     }
 
     drawBrush(width, color){
+        this.ctxc.clearRect(0, 0, this.cc.width, this.cc.height);
         this.sCent.draw(this.ctxc)
     }
 
@@ -506,6 +508,7 @@ class Annotator {
         this.state = 'fill';
         this.origin = new Origin();
         this.currentThicknessBrush = 10;
+        this.currentThicknessEraser = 10;
         this.view = new View({width: width, height: height}, this.origin, 
         {
             clickGreedCallback, 
@@ -567,6 +570,9 @@ class Annotator {
             } else if (self.state === 'brush' && self.currentColor) {
                 this.origin.drawBrush(coords.x, coords.y, self.currentThicknessBrush, self.currentColor)
                 this.drawBrush();
+            } else if (self.state === 'eraser') {
+                this.origin.drawBrush(coords.x, coords.y, self.currentThicknessEraser, [0,0,0,0])
+                this.drawBrush();
             }
         }
 
@@ -604,7 +610,6 @@ class Annotator {
             var mouseX = e.pageX - e.target.offsetLeft;
             var mouseY = e.pageY - e.target.offsetTop;
             let coords = this.origin.transformCoords({x: mouseX, y: mouseY}, this.scale, {x: this.sFront.x, y: this.sFront.y})
-                  
             if (self.paint) {
                 this.addClick(mouseX, mouseY, true);
                 this.origin.addClick(coords.x, coords.y, true);
@@ -613,6 +618,9 @@ class Annotator {
                     this.origin.drawContour();
                 } else if (self.state === 'brush' && self.currentColor) {
                     this.origin.drawBrush(coords.x, coords.y, self.currentThicknessBrush, self.currentColor)
+                    this.drawBrush();
+                } else if (self.state === 'eraser') {
+                    this.origin.drawBrush(coords.x, coords.y, self.currentThicknessEraser, [0,0,0,0])
                     this.drawBrush();
                 }
             }
@@ -630,7 +638,7 @@ class Annotator {
             this.origin.clearLines()
             this.origin.lastX = null
             this.origin.lastY = null
-            if (self.state === 'contour' || self.state === 'brush') {
+            if (self.state === 'contour' || self.state === 'brush' || self.state === 'eraser') {
                 self.undoq.addToQueue({type: 'draw', 
                     contours: this.origin.nctx.getImageData(0, 0, this.origin.netcanvas.width, this.origin.netcanvas.height),
                     segments: this.origin.pctx.getImageData(0, 0, this.origin.polycanvas.width, this.origin.polycanvas.height),
@@ -646,7 +654,7 @@ class Annotator {
             const isTop = mouseY < this.cc.height * 0.5;
             const canvasCenterX = this.cc.width * 0.5;
             const canvasCenterY = this.cc.height * 0.5;
-            const maxShiftStep = 0.05;
+            const maxShiftStep = 0.1;
             const outSetX = Math.abs(canvasCenterX - mouseX);
             const outSetY = Math.abs(canvasCenterY - mouseY);
             const shiftX = outSetX * maxShiftStep / canvasCenterX;
@@ -701,7 +709,7 @@ class Annotator {
     }
 
     canDraw() {
-        return this.state === 'contour' || this.state === 'brush'
+        return this.state === 'contour' || this.state === 'brush' || this.state === 'eraser'
     }
 
     undoSegments(segments) {
@@ -906,8 +914,20 @@ $(function () {
         }
     })
 
+    window.tool.controls.emitter.subscribe('Eraser', data => {
+        if (!annotator.inputAllowed) return;
+        if (data.state !== 'eraser') {
+            window.tool.controls.changeState('eraser')
+            annotator.state = 'eraser'
+        }
+    })
+    
     window.tool.controls.emitter.subscribe('Change Thickness', data => {
         annotator.currentThicknessBrush = +data.event.target.value
+    })
+
+    window.tool.controls.emitter.subscribe('Change Thickness Eraser', data => {
+        annotator.currentThicknessEraser = +data.event.target.value
     })
 
     window.tool.controls.emitter.subscribe('Zone Marker', data => {
@@ -950,5 +970,3 @@ $(function () {
         wasmWorker.postMessage(message)
     })
 });
-
-
