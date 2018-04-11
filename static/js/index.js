@@ -896,13 +896,7 @@ $(function () {
     })
 
     window.tool.annotation.emitter.subscribe("input:list", data => {
-        if (data.value) {
-            annotator.currentColor = [...data.color, 255]
-        } else {
-            annotator.currentColor = null
-        }
-    })
-    window.tool.sauce.emitter.subscribe("input:list", data => {
+        console.log(data)
         if (data.value) {
             annotator.currentColor = [...data.color, 255]
         } else {

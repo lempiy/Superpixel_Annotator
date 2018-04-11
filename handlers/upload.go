@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 	"github.com/labstack/echo"
-	"github.com/DragonTailSystems/AnnotationTool.v.2/tools"
+	"github.com/lempiy/Superpixel_Annotator/tools"
 	"fmt"
 	"strings"
 	"strconv"

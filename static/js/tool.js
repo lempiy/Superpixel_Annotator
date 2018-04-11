@@ -1,185 +1,18 @@
 $(function () {
     'use strict';
-    var toppings = [
+    var fragments = JSON.parse(localStorage.getItem("items") || 
+    `[
         {
-            "name": "Mushroom",
+            "name": "Default",
             "color": [
-                "100",
-                "2",
-                "5"
-            ]
-        },
-        {
-            "name": "Onion",
-            "color": [
-                "100",
-                "2",
-                "6"
-            ]
-        },
-        {
-            "name": "Jalapeno",
-            "color": [
-                "100",
-                "2",
-                "8"
-            ]
-        },
-        {
-            "name": "Fresh Tomato",
-            "color": [
-                "100",
-                "2",
-                "9"
-            ]
-        },
-        {
-            "name": "Pineapple",
-            "color": [
-                "100",
-                "3",
+                "255",
+                "0",
                 "0"
-            ]
-        },
-        {
-            "name": "Cherry Peppers",
-            "color": [
-                "100",
-                "3",
-                "1"
-            ]
-        },
-        {
-            "name": "Cherry Tomato",
-            "color": [
-                "100",
-                "3",
-                "2"
-            ]
-        },
-        {
-            "name": "Capsicum",
-            "color": [
-                "100",
-                "3",
-                "3"
-            ]
-        },
-        {
-            "name": "Baby Spinach",
-            "color": [
-                "100",
-                "3",
-                "4"
-            ]
-        },
-        {
-            "name": "Beef",
-            "color": [
-                "100",
-                "3",
-                "5"
-            ]
-        },
-        {
-            "name": "Italian Sausage",
-            "color": [
-                "100",
-                "3",
-                "6"
-            ]
-        },
-        {
-            "name": "Pepperoni",
-            "color": [
-                "100",
-                "3",
-                "7"
-            ]
-        },
-        {
-            "name": "Prawns ",
-            "color": [
-                "100",
-                "3",
-                "8"
-            ]
-        },
-        {
-            "name": "Bacon",
-            "color": [
-                "100",
-                "3",
-                "9"
-            ]
-        },
-        {
-            "name": "Pork & Fennel sausage",
-            "color": [
-                "100",
-                "4",
-                "1"
-            ]
-        },
-        {
-            "name": "Chicken",
-            "color": [
-                "100",
-                "4",
-                "2"
-            ]
-        },
-        {
-            "name": "Ham",
-            "color": [
-                "100",
-                "4",
-                "5"
-            ]
-        },
-        {
-            "name": "Camembert ",
-            "color": [
-                "100",
-                "4",
-                "6"
-            ]
-        },
-        {
-            "name": "Feta",
-            "color": [
-                "100",
-                "4",
-                "7"
-            ]
-        },
-        {
-            "name": "Anchovies",
-            "color": [
-                "100",
-                "4",
-                "8"
-            ]
-        },
-        {
-            "name": "Chorizo",
-            "color": [
-                "100",
-                "4",
-                "0"
-            ]
-        },
-        {
-            "name": "Olive",
-            "color": [
-                "100",
-                "6",
-                "5"
             ]
         }
-    ];
+    ]`);
     
-    var keysToppings = '1234567890qwertyuiopasdfg'.toUpperCase().split('');
+    var keysFragments = '1234567890qwertyuiopasdfg'.toUpperCase().split('');
     var spread = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
     var keysSpread = spread.map(function(item) {
         if(item === "10") {
@@ -187,45 +20,6 @@ $(function () {
         }
         return "Shift+"+item
     })
-    var doughTypes = ['Cheesy', 'Classic', 'Thin'];
-    var doughTypesKeys = ["Shift+Q", "Shift+W", "Shift+E"];
-    var quantityTypes = ['Less', 'Exact', 'Over'];
-    var quantityTypesKeys = ['Shift+A', 'Shift+S', 'Shift+D'];
-    var sauceTypes = [{
-        "name": "Sauce",
-        "color": [
-            "255",
-            "2",
-            "4"
-        ]
-    },
-    {
-        "name": "Crust ",
-        "color": [
-            "0",
-            "255",
-            "0"
-        ]
-    },
-    {
-        "name": "Cheese",
-        "color": [
-            "0",
-            "0",
-            "255"
-        ]
-    },
-    {
-        "name": "Unknown",
-        "color": [
-            "255",
-            "255",
-            "255"
-        ]
-    }];
-    var sauceTypesKeys = ['Shift+Z', 'Shift+X', 'Shift+C', 'Shift+V'];
-    var crustTypes = ['Under cooked', 'Good', 'Over cooked'];
-    var crustTypesKeys = ['Shift+R', 'Shift+T', 'Shift+Y'];
     var buttons = [
         {
             id: 'Zone Marker',
@@ -337,73 +131,13 @@ $(function () {
         })
     }
 
-    function initToppings(toppings, keysToppings) {
+    function initFragments(fragments, keysFragments) {
         var blist = new ButtonList({
             hostElement: document.querySelector(".controls .full"),
-            list: getList(toppings, keysToppings),
+            list: getList(fragments, keysFragments),
             multiSelect: false,
             selectedClass: "topping-selected",
-            name: "toppings"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initSpread(spread, keysSpread) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .full-spread"),
-            list: getList(spread, keysSpread),
-            multiSelect: false,
-            selectedClass: "spread-selected",
-            name: "spread"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initDough(doughTypes, doughTypesKeys) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .left"),
-            list: getList(doughTypes, doughTypesKeys),
-            multiSelect: false,
-            selectedClass: "dough-selected",
-            name: "dough"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initQuantity(quantityTypes, quantityTypesKeys) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .right"),
-            list: getList(quantityTypes, quantityTypesKeys),
-            multiSelect: false,
-            selectedClass: "q-selected",
-            name: "quantity"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initSauces(sauceTypes, sauceTypesKeys) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .full"),
-            list: getList(sauceTypes, sauceTypesKeys),
-            multiSelect: false,
-            selectedClass: "sauces-selected",
-            name: "Other"
-        })
-        blist.render()
-        return blist
-    }
-
-    function initCrust(crustTypes, crustTypesKeys) {
-        var blist = new ButtonList({
-            hostElement: document.querySelector(".controls .right-last"),
-            list: getList(crustTypes, crustTypesKeys),
-            multiSelect: false,
-            selectedClass: "crust-selected",
-            name: "crust"
+            name: "fragments"
         })
         blist.render()
         return blist
@@ -551,8 +285,8 @@ $(function () {
         this.element.innerHTML = this.list.reduce(function(acc, el, i) {
             return acc +=
             "<li id='"+el.value+"' class='list-element "+ (self.selectedClass || "") +"'>" +
-                "<p class='color-label' style='background-color: rgba("+el.color.join(',')+",255);'></p>"+
-                "<p class='licontent'>" +
+                "<input type='color' name='"+el.value+"' value='"+rgbToHex(+el.color[0], +el.color[1], +el.color[2])+"'></input>"+
+                "<p class='licontent check-"+self.name+"'>" +
                     "<span class='el-name'>"+el.value+"</span>" +
                     "<span class='el-shortcut' title='Shortcut letter'>"
                         +el.shortcut+
@@ -569,13 +303,38 @@ $(function () {
         this.element.classList.add("list-el", this.name)
         this.container.appendChild(this.element)
         this.hostElement.appendChild(this.container)
+        $(this.container).append(
+            `<input type='text' id='add-color' name='add-color'>
+            <button class='add-color-btn'>Add</button>`
+        )
+        console.log($('.add-color-btn'))
+        $('.add-color-btn').on("click", function(e){
+            
+            var value = $('#add-color').val()
+            if (!value) return
+            self.colors[value] = {
+                name: value,
+                color: [255,255,255]
+            }
+            $(self.element).append(
+                "<li id='"+value+"' class='list-element "+ (self.selectedClass || "") +"'>" +
+                    "<input type='color' name='"+value+"' value='#ffffff'></input>"+
+                    "<p class='licontent check-"+self.name+"'>" +
+                        "<span class='el-name'>"+value+"</span>" +
+                    "</p>" +
+                "</li>"
+            )
+        })
         this.handleToggle()
+        $(this.element).on('change.spectrum', function(e, color) {
+            self.colors[e.target.name] = hexToRgb(e.target.value)
+        })
     }
 
     ButtonList.prototype.handleToggle = function(id) {
         var self = this;
 
-        controls.on("click", "."+this.name, function(event) {
+        controls.on("click", ".check-"+this.name, function(event) {
 
             var el = $(event.target).closest(".list-element")
             if (!el.length) {
@@ -661,14 +420,14 @@ $(function () {
     function SlicControls() {
         this.resolver = null;
         this.all = document.querySelector('.slic-controls');
-        this.spSizeEl = this.all.querySelector('.sp-size-value');
-        this.spSizeInput = this.all.querySelector('#sp-size-in');
+        this.spSizeEl = this.all.querySelector('.spx-size-value');
+        this.spSizeInput = this.all.querySelector('#spx-size-in');
 
-        this.spCompEl = this.all.querySelector('.sp-comp-value');
-        this.spCompInput = this.all.querySelector('#sp-comp-in');
+        this.spCompEl = this.all.querySelector('.spx-comp-value');
+        this.spCompInput = this.all.querySelector('#spx-comp-in');
 
-        this.spItEl = this.all.querySelector('.sp-it-value');
-        this.spItInput = this.all.querySelector('#sp-it-in');
+        this.spItEl = this.all.querySelector('.spx-it-value');
+        this.spItInput = this.all.querySelector('#spx-it-in');
     }
 
     SlicControls.prototype.init = function() {
@@ -731,8 +490,7 @@ $(function () {
     function initTool() {
         return {
             "controls": initControls(buttons),
-            "annotation": initToppings(toppings, keysToppings),
-            "sauce": initSauces(sauceTypes, sauceTypesKeys),
+            "annotation": initFragments(fragments, keysFragments),
             "slic": initSlicControls(),
             "spinner": initSpinner()
         }
@@ -752,15 +510,28 @@ $(function () {
         tool.sauce.reset()
     }
 
+    function componentToHex(c) {
+        var hex = c.toString(16);
+        return hex.length == 1 ? "0" + hex : hex;
+    }
+
+    function rgbToHex(r, g, b) {
+        return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+    }
+
+    function hexToRgb(hex) {
+        var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+        hex = hex.replace(shorthandRegex, function(m, r, g, b) {
+            return r + r + g + g + b + b;
+        });
+    
+        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? [
+            parseInt(result[1], 16),
+            parseInt(result[2], 16),
+            parseInt(result[3], 16)
+        ] : null;
+    }
+
     window.tool = initTool()
-    window.tool.annotation.emitter.subscribe("input:list", e => {
-        const sel = window.tool.sauce.element.querySelector(".list-element.selected")
-        sel && sel.classList.remove("selected")
-        window.tool.sauce.data = ""
-    })
-    window.tool.sauce.emitter.subscribe("input:list", e => {
-        const sel = window.tool.annotation.element.querySelector(".list-element.selected")
-        sel && sel.classList.remove("selected")
-        window.tool.annotation.data = ""
-    })
 });

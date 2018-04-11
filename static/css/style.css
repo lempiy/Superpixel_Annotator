@@ -271,7 +271,7 @@ ul.list-el li.selected .el-name {
     opacity: 0.6;
 }
 
-.sp {
+.spx {
     margin: 20px 0;
 }
 
@@ -296,6 +296,26 @@ input[type=range] {
 
 .ok:hover {
     background-color: #666;
+}
+
+input[type=color] {
+    margin-right: 5px;
+}
+
+.controls #add-color {
+    height: 30px;
+    border-radius: 5px;
+    border-color: #333;
+}
+
+.controls #add-color:focus {
+    outline: none;
+}
+
+.controls .add-color-btn {
+    margin-left: 25px;
+    height: 40px;
+    display: inline-block;
 }
 
 .spinner {

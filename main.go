@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
-	"github.com/DragonTailSystems/AnnotationTool.v.2/handlers"
+	"github.com/lempiy/Superpixel_Annotator/handlers"
 	"os/exec"
 	"fmt"
 	"runtime"
