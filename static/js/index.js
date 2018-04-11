@@ -824,6 +824,14 @@ class Annotator {
                 this.origin.sctx.clearRect(0, 0, this.origin.savingcanvas.width, this.origin.savingcanvas.height)
                 this.origin.sctx.putImageData(e.data.msg, 0, 0)
                 console.log("DO SAVE!")
+                var link = document.createElement('a');
+                link.innerHTML = 'download image';
+                link.addEventListener('click', (ev) => {
+                    link.href = this.origin.savingcanvas.toDataURL();
+                    link.download = "data.png";
+                }, false);
+                link.click();
+                return
                 this.origin.savingcanvas.toBlob((blob)=> {
                     const fd = new FormData();
                     fd.append('image', blob, this.currentName+'_colored.png');
