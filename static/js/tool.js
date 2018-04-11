@@ -124,8 +124,7 @@ $(function () {
     function getList(values, keys) {
         return values.map(function(val, i) {
             return {
-                shortcut: keys[i] || null,
-                value: val.name,
+                name: val.name,
                 color: [+val.color[0], +val.color[1], +val.color[2]]
             }
         })
@@ -269,7 +268,7 @@ $(function () {
             return acc
         }, {}) : "";
         this.colors = this.list.reduce(function(acc, el) {
-            acc[el.value] = el.color
+            acc[el.name] = el.color
             return acc
         }, {})
         this.emitter = new EventEmitter();
@@ -284,12 +283,12 @@ $(function () {
         var self = this;
         this.element.innerHTML = this.list.reduce(function(acc, el, i) {
             return acc +=
-            "<li id='"+el.value+"' class='list-element "+ (self.selectedClass || "") +"'>" +
-                "<input type='color' name='"+el.value+"' value='"+rgbToHex(+el.color[0], +el.color[1], +el.color[2])+"'></input>"+
-                "<p class='licontent check-"+self.name+"'>" +
-                    "<span class='el-name'>"+el.value+"</span>" +
-                    "<span class='el-shortcut' title='Shortcut letter'>"
-                        +el.shortcut+
+            "<li id='"+el.name+"' class='list-element "+ (self.selectedClass || "") +"'>" +
+                "<input type='color' name='"+el.name+"' value='"+rgbToHex(+el.color[0], +el.color[1], +el.color[2])+"'></input>"+
+                "<p class='licontent'>" +
+                    "<span class='el-name check-"+self.name+"'>"+el.name+"</span>" +
+                    "<span class='el-remove' title='Remove'>"
+                        +"X"+
                     "</span>" +
                 "</p>" +
             "</li>"
@@ -307,35 +306,59 @@ $(function () {
             `<input type='text' id='add-color' name='add-color'>
             <button class='add-color-btn'>Add</button>`
         )
-        console.log($('.add-color-btn'))
         $('.add-color-btn').on("click", function(e){
-            
             var value = $('#add-color').val()
             if (!value) return
-            self.colors[value] = {
+            self.colors[value] = [255,255,255]
+            self.list.push({
                 name: value,
                 color: [255,255,255]
-            }
+            })
+            self.save()
             $(self.element).append(
                 "<li id='"+value+"' class='list-element "+ (self.selectedClass || "") +"'>" +
                     "<input type='color' name='"+value+"' value='#ffffff'></input>"+
-                    "<p class='licontent check-"+self.name+"'>" +
-                        "<span class='el-name'>"+value+"</span>" +
+                    "<p class='licontent'>" +
+                        "<span class='el-name check-"+self.name+"'>"+value+"</span>" +
+                        "<span class='el-remove' title='Remove'>"
+                            +"X"+
+                        "</span>" +
                     "</p>" +
                 "</li>"
             )
         })
         this.handleToggle()
+        $('.el-remove').on('click', function(e) {
+            var el = $(e.target).closest('.list-element')
+            var id = el[0].id
+            el.remove()
+            delete self.colors[id]
+            self.list.splice(self.list.findIndex(item => item.name === id), 1)
+            self.save()
+        })
         $(this.element).on('change.spectrum', function(e, color) {
             self.colors[e.target.name] = hexToRgb(e.target.value)
+            self.list[self.list.findIndex(item => item.name === e.target.name)].color = hexToRgb(e.target.value)
+            self.save()
+            var el = $(event.target).closest(".list-element")
+            if (!el.length) {
+                return
+            }
+            $("."+self.name + " .list-element").removeClass("selected")
+            self.data = self.data === el.get(0).id ? "" : el.get(0).id
+            self.data ? el.addClass("selected") : el.removeClass("selected")
+            self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: !!self.data })
         })
+    }
+
+    ButtonList.prototype.save = function() {
+        console.log(this)
+        localStorage.setItem('items', JSON.stringify(this.list))
     }
 
     ButtonList.prototype.handleToggle = function(id) {
         var self = this;
-
         controls.on("click", ".check-"+this.name, function(event) {
-
             var el = $(event.target).closest(".list-element")
             if (!el.length) {
                 return
@@ -351,22 +374,6 @@ $(function () {
                 self.data ? el.addClass("selected") : el.removeClass("selected")
                 self.emitter.emit("input:list", { key: el.get(0).id, color: self.colors[el.get(0).id], value: !!self.data })
             }
-
-        })
-        this.list.forEach(function(el) {
-            shortcut.add(el.shortcut, function() {
-                var elm = self.elementsMap[el.value]
-                if (self.multiSelect) {
-                    $(elm).toggleClass("selected")
-                    self.data[el.value] = !self.data[el.value]
-                    self.emitter.emit("input:list", { key: el.value, color: self.colors[el.value], value: self.data[el.value] })
-                } else {
-                    $("."+self.name + " .list-element").removeClass("selected")
-                    self.data = self.data === el.value ? "" : el.value
-                    self.data ? $(elm).addClass("selected") : $(elm).removeClass("selected")
-                    self.emitter.emit("input:list", { key: el.value, color: self.colors[el.value], value: !!self.data })
-                }
-            });
         })
     }
 

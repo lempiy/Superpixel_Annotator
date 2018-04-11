@@ -306,10 +306,11 @@ input[type=color] {
     height: 30px;
     border-radius: 5px;
     border-color: #333;
+    width: 140px;
 }
 
 .controls #add-color:focus {
-    outline: none;
+    outline: none; 
 }
 
 .controls .add-color-btn {
