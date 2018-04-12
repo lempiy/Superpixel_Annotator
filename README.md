@@ -1,6 +1,6 @@
 ## Superpixel Annotator
 
-Annotaion tool for camera project based on SLIC, OPENCV, WebAssembly. Golang version.
+Annotation tool for ML training process. Based on SLIC, OPENCV, WebAssembly. Golang version.
 
 Allows you to easily produce manually created bitmap output.
 
@@ -22,3 +22,5 @@ Allows you to easily produce manually created bitmap output.
 * Custom brush drawing without smoothing
 * Undo
 * Zoom and drag with Shift + Mouse down
+
+*OPENCV wasm module taken from [WebSight](https://github.com/Web-Sight/WebSight) project*
