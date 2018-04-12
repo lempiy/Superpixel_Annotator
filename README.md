@@ -2,6 +2,8 @@
 
 Annotation tool for ML training process. Based on SLIC, OPENCV, WebAssembly. Golang version.
 
+**Early BETA**
+
 Allows you to easily produce manually created bitmap output.
 
 ![ui](doc/ui.png)
